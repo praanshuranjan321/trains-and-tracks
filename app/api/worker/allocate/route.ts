@@ -30,6 +30,7 @@ import { confirmHold, releaseReservation } from '@/lib/allocation/hold-state-mac
 import { charge, refund, PaymentError } from '@/lib/payment/mock-service';
 import { paymentPolicy } from '@/lib/resilience/payment-policy';
 import { commitIdempotencyResponse } from '@/lib/idempotency/postgres-authority';
+import { maybeInjectChaos, WorkerChaosError } from '@/lib/chaos/worker-gate';
 import { logger } from '@/lib/logging/logger';
 import { record } from '@/lib/metrics/registry';
 import { M } from '@/lib/metrics/names';
@@ -69,6 +70,18 @@ async function handler(req: NextRequest): Promise<Response> {
   const retried = Number(req.headers.get('upstash-retried') ?? 0);
   const messageId = req.headers.get('upstash-message-id') ?? 'unknown';
   const log = logger.child({ request_id: requestId, qstash_message_id: messageId, retried });
+
+  // Step 0: chaos injection point (demo only; noop when flag absent).
+  try {
+    await maybeInjectChaos();
+  } catch (e) {
+    if (e instanceof WorkerChaosError) {
+      log.warn({ mode: e.mode }, 'chaos_triggered');
+      record.counter(M.chaosTriggeredTotal, { mode: e.mode });
+      return transientError('upstream_failure', `chaos_${e.mode}`);
+    }
+    throw e;
+  }
 
   // Step 2: parse + validate
   let job: ReturnType<typeof AllocateJobSchema.parse>;
