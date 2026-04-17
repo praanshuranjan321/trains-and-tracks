@@ -254,8 +254,60 @@ export default function HomePage() {
         </div>
       </section>
 
-      <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-xs text-muted-foreground">
-        <div className="font-mono">Trains and Tracks · hackathon build · 2026-04-17</div>
+      <footer className="border-t border-zinc-800/60 bg-zinc-950/60">
+        <div className="mx-auto max-w-6xl px-6 py-10 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center justify-between gap-3 font-mono">
+            <div className="uppercase tracking-widest">
+              Trains and Tracks · hackathon build · 2026-04-18
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <a
+                href="https://github.com/praanshuranjan321/trains-and-tracks"
+                target="_blank"
+                rel="noreferrer"
+                className="uppercase tracking-widest hover:text-foreground"
+              >
+                GitHub
+              </a>
+              <a
+                href="https://github.com/praanshuranjan321/trains-and-tracks/blob/main/docs/ARCHITECTURE.md"
+                target="_blank"
+                rel="noreferrer"
+                className="uppercase tracking-widest hover:text-foreground"
+              >
+                Architecture
+              </a>
+              <a
+                href="https://github.com/praanshuranjan321/trains-and-tracks/blob/main/docs/DECISIONS.md"
+                target="_blank"
+                rel="noreferrer"
+                className="uppercase tracking-widest hover:text-foreground"
+              >
+                Decisions
+              </a>
+              <a
+                href="https://github.com/praanshuranjan321/trains-and-tracks/blob/main/docs/FAILURE_MATRIX.md"
+                target="_blank"
+                rel="noreferrer"
+                className="uppercase tracking-widest hover:text-foreground"
+              >
+                Failure matrix
+              </a>
+            </div>
+          </div>
+          <div className="mt-4 text-[10px] uppercase tracking-widest text-muted-foreground/60">
+            Hero photo:{' '}
+            <a
+              href="https://www.pexels.com/photo/train-station-2031024/"
+              target="_blank"
+              rel="noreferrer"
+              className="underline"
+            >
+              Pexels
+            </a>{' '}
+            · Licensed free for commercial use.
+          </div>
+        </div>
       </footer>
     </main>
   );
