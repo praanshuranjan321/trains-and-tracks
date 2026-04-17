@@ -13,23 +13,27 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 const CASE_STUDIES = [
   {
     system: 'IRCTC Tatkal',
-    event: 'Daily 10 AM AC booking',
-    pain: '50% of first-5-minute login traffic is bot-driven (Ministry of Railways, 2025). Payment deducted before seat confirmed — legitimate users lose seats to bots.',
+    headline: '50%',
+    subhead: 'bot-driven login traffic in the first 5 minutes (Ministry of Railways, 2025)',
+    pain: 'Payment deducted before seat confirmed — legitimate users lose seats to bots.',
   },
   {
-    system: 'BookMyShow · Coldplay India',
-    event: 'Sept 2024',
-    pain: '13M queued for ~150K tickets — 305× demand. Global queue key, weak bot mitigation. Pre-sale logged-in users auto-logged-out at T=0. Mumbai EOW complaint alleged 9 lakh of 12 lakh ahead in queue were bots.',
+    system: 'BookMyShow · Coldplay',
+    headline: '305×',
+    subhead: 'demand vs capacity · 13M queued for 150K tickets (Sept 2024)',
+    pain: 'Global queue key + weak bot mitigation. Mumbai EOW alleged 9L of 12L queued were bots.',
   },
   {
     system: 'CoWIN',
-    event: '28 Apr 2021, 18–44 registration',
-    pain: 'Public 5-minute-cached availability endpoint weaponized by getjab.in / Telegram bots polling every 5 s. Human UI users never saw an open slot.',
+    headline: '30K/s',
+    subhead: 'peak updates · 13.7M registrations in 8h (28 Apr 2021)',
+    pain: 'Public 5-min-cached endpoint weaponized by Telegram bots. Humans never saw a slot.',
   },
   {
-    system: 'Ticketmaster · Eras Tour',
-    event: 'Nov 2022',
-    pain: '3.5B system requests — 4× previous peak. Verified Fan gated entry but not checkout throughput. Cart holds weren\'t reliably held. Senate Judiciary hearing followed.',
+    system: 'Ticketmaster · Eras',
+    headline: '4×',
+    subhead: 'previous peak · 3.5B system requests (Nov 2022)',
+    pain: 'Verified Fan gated entry, not checkout. Cart holds weren\'t held. Senate hearing followed.',
   },
 ];
 
@@ -112,16 +116,28 @@ export default function HomePage() {
               refused new work fast enough. Users hang. Payments clear. Tickets don&apos;t.
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {CASE_STUDIES.map((c) => (
-              <Card key={c.system} className="h-full">
+              <Card key={c.system} className="h-full border-zinc-800/60 bg-zinc-950/40">
                 <CardHeader className="pb-3">
-                  <CardTitle className="font-mono text-base">{c.system}</CardTitle>
-                  <div className="text-xs text-muted-foreground">{c.event}</div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                    {c.system}
+                  </div>
+                  <div
+                    className="mt-2 font-bold tabular-nums text-[#00D084]"
+                    style={{
+                      fontSize: 'clamp(2.5rem, 5vw, 4rem)',
+                      fontFamily: '"Anton", "Bebas Neue", system-ui, sans-serif',
+                      lineHeight: 0.95,
+                    }}
+                  >
+                    {c.headline}
+                  </div>
+                  <CardTitle className="mt-1 font-mono text-[11px] font-normal uppercase tracking-wider text-muted-foreground">
+                    {c.subhead}
+                  </CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-muted-foreground">
-                  {c.pain}
-                </CardContent>
+                <CardContent className="text-sm text-muted-foreground">{c.pain}</CardContent>
               </Card>
             ))}
           </div>
