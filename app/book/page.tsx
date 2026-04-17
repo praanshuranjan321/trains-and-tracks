@@ -51,6 +51,20 @@ const TRAIN_ID = '12951';
 const POLL_MS = 1000;
 const POLL_MAX = 60;
 
+function friendlyReason(raw: string): string {
+  const r = raw.toLowerCase();
+  if (r.includes('sold_out')) return 'This seat just got taken. Every seat on this train is booked — try the next Rajdhani.';
+  if (r.includes('payment_failed') || r.includes('payment_declined'))
+    return 'Payment gateway declined after 3 retries. No money was charged. Pick another seat and try again.';
+  if (r.includes('payment_timeout')) return 'Payment gateway timed out. No charge. Please pick a seat and retry.';
+  if (r.includes('hold_expired')) return 'The seat hold expired before payment completed. The seat is back in the pool — try booking again.';
+  if (r.includes('rate')) return 'Too many requests from your IP. Wait ~10 seconds and retry.';
+  if (r.includes('queue') || r.includes('backpressure')) return 'Queue is saturated right now. Wait a few seconds and retry.';
+  if (r.includes('publish')) return "Couldn't enqueue the booking (transient). Pick a seat and retry with a fresh click.";
+  if (r.includes('timed out')) return 'Server took longer than expected. Check /ops — the worker may still complete.';
+  return raw;
+}
+
 function statusColor(s: SeatInfo['status'], selected: boolean) {
   if (selected) {
     return 'bg-[#00D084] text-black border-[#00D084] shadow-[0_0_14px_rgba(0,208,132,0.6)]';
@@ -339,11 +353,18 @@ export default function BookPage() {
           )}
 
           {outcome.kind === 'failure' && (
-            <div className="rounded-md border border-destructive/50 bg-destructive/10 p-4 text-sm">
-              <div className="font-mono text-destructive">Booking failed</div>
-              <div className="mt-1 text-muted-foreground">{outcome.reason}</div>
+            <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-5">
+              <div className="font-mono text-[10px] uppercase tracking-widest text-destructive">
+                Booking failed
+              </div>
+              <div className="mt-2 text-sm">{friendlyReason(outcome.reason)}</div>
               {outcome.jobId && (
-                <div className="mt-1 font-mono text-xs text-muted-foreground">Job {outcome.jobId}</div>
+                <div className="mt-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Job ID
+                  <span className="ml-2 text-[11px] normal-case tracking-normal text-foreground/80">
+                    {outcome.jobId}
+                  </span>
+                </div>
               )}
             </div>
           )}
@@ -361,7 +382,7 @@ export default function BookPage() {
                 </Button>
               </>
             )}
-            {(outcome.kind === 'success' || outcome.kind === 'failure') && (
+            {outcome.kind === 'success' && (
               <Button
                 onClick={() => {
                   setDialogOpen(false);
@@ -370,9 +391,35 @@ export default function BookPage() {
                   setPassengerPhone('');
                   setOutcome({ kind: 'idle' });
                 }}
+                className="font-mono text-[13px] uppercase tracking-wider"
               >
                 Done
               </Button>
+            )}
+            {outcome.kind === 'failure' && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setSelectedSeatId(null);
+                    setOutcome({ kind: 'idle' });
+                  }}
+                >
+                  Close
+                </Button>
+                <Button
+                  onClick={() => {
+                    setDialogOpen(false);
+                    setSelectedSeatId(null);
+                    setOutcome({ kind: 'idle' });
+                    void refreshGrid();
+                  }}
+                  className="font-mono text-[13px] uppercase tracking-wider"
+                >
+                  Try Another Seat
+                </Button>
+              </>
             )}
           </DialogFooter>
         </DialogContent>
