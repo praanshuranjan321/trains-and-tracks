@@ -30,6 +30,32 @@ export interface AllocateJobPayload {
  */
 export async function publishAllocateJob(args: AllocateJobPayload): Promise<{ messageId: string }> {
   const appUrl = required('APP_URL');
+
+  // Local-dev bypass: when QSTASH_DEV_BYPASS=1 AND NODE_ENV !== 'production',
+  // dispatch the worker in-process over HTTP instead of publishing to QStash.
+  // This runs the full end-to-end flow locally without consuming QStash
+  // free-tier daily-message quota. Pair with the same flag on the verifier
+  // so the worker accepts unsigned requests.
+  const bypass =
+    process.env.QSTASH_DEV_BYPASS === '1' &&
+    process.env.NODE_ENV !== 'production';
+
+  if (bypass) {
+    const workerUrl = `${appUrl}/api/worker/allocate`;
+    // Fire-and-forget — /api/book returns 202 before the worker completes,
+    // matching QStash semantics. Errors in the fetch only log.
+    void fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(args),
+    }).catch((e) => {
+      // eslint-disable-next-line no-console
+      console.warn('[qstash-bypass] worker dispatch failed:', e);
+    });
+    const messageId = `local_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+    return { messageId };
+  }
+
   const res = await qstash.publishJSON({
     url: `${appUrl}/api/worker/allocate`,
     body: args,
