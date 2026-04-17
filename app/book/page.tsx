@@ -216,18 +216,20 @@ export default function BookPage() {
         )}
 
         {grid && (
-          <div className="mt-10 space-y-4">
+          <div className="mt-10 space-y-2.5">
             {coaches.map(([coach, seats]) => (
-              <div key={coach}>
-                <div className="mb-2 font-mono text-xs text-muted-foreground">{coach}</div>
-                <div className="grid grid-cols-[repeat(25,minmax(0,1fr))] gap-1">
+              <div key={coach} className="flex items-center gap-4">
+                <div className="w-10 shrink-0 text-right font-mono text-[11px] uppercase tracking-wider text-muted-foreground">
+                  {coach}
+                </div>
+                <div className="flex flex-wrap gap-1">
                   {seats.map((s) => (
                     <button
                       key={s.id}
                       onClick={() => openBooking(s)}
                       disabled={s.status !== 'AVAILABLE'}
                       title={`${s.id} · ${s.status}`}
-                      className={`h-6 w-6 shrink-0 rounded-[5px] border text-[9px] font-mono leading-none transition-all duration-150 ${statusColor(
+                      className={`h-6 w-6 shrink-0 rounded-[5px] border text-[9px] font-mono leading-none transition-all duration-150 flex items-center justify-center ${statusColor(
                         s.status,
                         s.id === selectedSeatId,
                       )}`}
