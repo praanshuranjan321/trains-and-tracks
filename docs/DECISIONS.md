@@ -620,6 +620,12 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: infra/qstash/verifier.ts falls through to the raw handler when NODE_ENV !== 'production' AND QSTASH_DEV_BYPASS=1. Production unchanged. Logs warning on bypass so it's impossible to ship accidentally
 - files: infra/qstash/verifier.ts
 
+## [2026-04-18 04:48 IST] ad-hoc: Local-dev bypass in publisher — skip QStash entirely
+- context: QStash free-tier 1000/day hard cap blocks local iteration + end-to-end testing without a credit card for pay-as-you-go upgrade
+- decision: when QSTASH_DEV_BYPASS=1 AND NODE_ENV !== 'production', infra/qstash/publisher.ts dispatches directly to /api/worker/allocate over HTTP (fire-and-forget) instead of calling QStash. Returns a synthetic `local_<ts>_<rand>` messageId so downstream code is unchanged. Verified locally: 202 → CONFIRMED in <1s with zero quota consumed.
+- trade-offs vs real path: no Flow Control serialization per train (concurrency = undici's), no retries, no DLQ. Fine for happy-path dev; not a surge substitute.
+- files: infra/qstash/publisher.ts
+
 ---
 
 ## 6. Defense notes
