@@ -51,18 +51,36 @@ const TRAIN_ID = '12951';
 const POLL_MS = 1000;
 const POLL_MAX = 60;
 
-function friendlyReason(raw: string): string {
-  const r = raw.toLowerCase();
-  if (r.includes('sold_out')) return 'This seat just got taken. Every seat on this train is booked — try the next Rajdhani.';
-  if (r.includes('payment_failed') || r.includes('payment_declined'))
-    return 'Payment gateway declined after 3 retries. No money was charged. Pick another seat and try again.';
-  if (r.includes('payment_timeout')) return 'Payment gateway timed out. No charge. Please pick a seat and retry.';
-  if (r.includes('hold_expired')) return 'The seat hold expired before payment completed. The seat is back in the pool — try booking again.';
-  if (r.includes('rate')) return 'Too many requests from your IP. Wait ~10 seconds and retry.';
-  if (r.includes('queue') || r.includes('backpressure')) return 'Queue is saturated right now. Wait a few seconds and retry.';
-  if (r.includes('publish')) return "Couldn't enqueue the booking (transient). Pick a seat and retry with a fresh click.";
-  if (r.includes('timed out')) return 'Server took longer than expected. Check /ops — the worker may still complete.';
-  return raw;
+// Map error.code (canonical set from API_CONTRACT §3) to a user-facing sentence.
+// Exact match on the code — no substring sniffing (an earlier substring match
+// turned "enqueue" into "queue" and mislabeled publish failures as backpressure).
+function friendlyReason(code: string): string {
+  switch (code) {
+    case 'sold_out':
+      return 'Every seat on this train is booked. Try the next Rajdhani or reset the demo from /ops.';
+    case 'payment_failed':
+    case 'payment_declined':
+      return 'Payment gateway declined after 3 retries. No money was charged. Pick another seat and try again.';
+    case 'payment_timeout':
+      return 'Payment gateway timed out. No charge. Please pick a seat and retry.';
+    case 'hold_expired':
+    case 'hold_expired_during_payment':
+      return 'The seat hold expired before payment completed. The seat is back in the pool — try booking again.';
+    case 'rate_limit_exceeded':
+      return 'Too many requests from your IP. Wait ~10 seconds and retry.';
+    case 'backpressure':
+      return 'Queue is saturated right now. Wait a few seconds and retry.';
+    case 'upstream_failure':
+      return "Couldn't enqueue the booking (QStash publish failed or quota). Retry with a fresh click.";
+    case 'circuit_open':
+      return 'Database circuit breaker is open. Wait ~30s and retry.';
+    case 'idempotency_key_replaying':
+      return 'An earlier request with this key is still processing. Poll /api/book/:jobId or wait.';
+    case 'internal_error':
+      return 'Server hit an unexpected error. Please retry.';
+    default:
+      return code.replace(/_/g, ' ');
+  }
 }
 
 function statusColor(s: SeatInfo['status'], selected: boolean) {
@@ -144,19 +162,11 @@ export default function BookPage() {
         jobId?: string;
         error?: { code: string; message: string };
       };
+      const errorCode = body.error?.code ?? `http_${res.status}`;
       if (res.status === 202 && body.jobId) {
         setOutcome({ kind: 'polling', jobId: body.jobId, attempt: 0 });
-      } else if (res.status === 429) {
-        setOutcome({ kind: 'failure', reason: 'Rate limited — try again shortly.' });
-      } else if (res.status === 503) {
-        setOutcome({ kind: 'failure', reason: 'Queue saturated — try again shortly.' });
-      } else if (res.status === 502) {
-        setOutcome({ kind: 'failure', reason: 'Could not enqueue booking (publish failed). Retry with a fresh key.' });
       } else {
-        setOutcome({
-          kind: 'failure',
-          reason: body.error?.message ?? `HTTP ${res.status}`,
-        });
+        setOutcome({ kind: 'failure', reason: errorCode });
       }
     } catch (e) {
       setOutcome({ kind: 'failure', reason: e instanceof Error ? e.message : 'Network error' });
