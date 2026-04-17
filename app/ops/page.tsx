@@ -151,23 +151,33 @@ export default function OpsPage() {
 
   return (
     <main className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-10 border-b bg-background/80 backdrop-blur">
+      <header className="sticky top-0 z-10 border-b border-zinc-800/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-3">
-            <Link href="/" className="font-mono text-sm text-muted-foreground hover:text-foreground">
-              ← Trains and Tracks
+          <div className="flex items-center gap-4">
+            <Link
+              href="/"
+              className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
+            >
+              ← trains and tracks
             </Link>
-            <Badge variant="secondary" className="gap-1 font-mono">
-              <span className="relative inline-flex h-2 w-2">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-75" />
-                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-              </span>
-              ops
-            </Badge>
+            <div id="rate-limiter-pill" className="flex items-center gap-1.5 rounded-full border border-zinc-700/60 bg-zinc-900/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+              rate limiter · 100/10s
+            </div>
           </div>
-          <Button variant="ghost" size="sm" onClick={refresh} className="gap-2">
-            <RefreshCw className="h-4 w-4" /> reload
-          </Button>
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="relative inline-flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00D084] opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00D084]" />
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-widest text-[#00D084]">
+                system healthy
+              </span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={refresh} className="gap-2 font-mono text-[10px] uppercase tracking-widest">
+              <RefreshCw className="h-3 w-3" /> reload
+            </Button>
+          </div>
         </div>
       </header>
 
