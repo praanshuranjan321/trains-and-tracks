@@ -73,14 +73,12 @@ export interface AllocateJobPayload {
 export async function publishAllocateJob(args: AllocateJobPayload): Promise<{ messageId: string }> {
   const appUrl = required('APP_URL');
 
-  // Local-dev bypass: when QSTASH_DEV_BYPASS=1 AND NODE_ENV !== 'production',
+  // Local-dev bypass: when QSTASH_DEV_BYPASS=1 AND we're NOT on Vercel,
   // dispatch the worker in-process over HTTP instead of publishing to QStash.
-  // This runs the full end-to-end flow locally without consuming QStash
-  // free-tier daily-message quota. Pair with the same flag on the verifier
-  // so the worker accepts unsigned requests.
-  const bypass =
-    process.env.QSTASH_DEV_BYPASS === '1' &&
-    process.env.NODE_ENV !== 'production';
+  // Keyed off VERCEL (auto-set by Vercel runtime), not NODE_ENV — `next start`
+  // sets NODE_ENV=production even when running locally, which would wrongly
+  // disable the bypass. On Vercel, VERCEL=1 makes the flag structurally inert.
+  const bypass = process.env.QSTASH_DEV_BYPASS === '1' && !process.env.VERCEL;
 
   if (bypass) {
     // In-process Flow Control: serialize workers per trainId (parallelism: 1,

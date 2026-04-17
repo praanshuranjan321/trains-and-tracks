@@ -15,16 +15,19 @@ import { verifySignatureAppRouter as realVerifier } from '@upstash/qstash/nextjs
 
 type Handler = (req: NextRequest) => Promise<Response>;
 
+// Bypass activates when QSTASH_DEV_BYPASS=1 AND we're NOT running on Vercel.
+// `process.env.VERCEL === '1'` is automatically set by Vercel's runtime, so
+// the flag is structurally impossible to activate in production. Local
+// `next dev` AND `next start` both leave VERCEL unset, so bypass works for
+// both (unlike a NODE_ENV check, which `next start` sets to production).
 export function verifySignatureAppRouter(handler: Handler): Handler {
-  const bypass =
-    process.env.QSTASH_DEV_BYPASS === '1' &&
-    process.env.NODE_ENV !== 'production';
+  const bypass = process.env.QSTASH_DEV_BYPASS === '1' && !process.env.VERCEL;
 
   if (bypass) {
     // eslint-disable-next-line no-console
     console.warn(
       '[qstash] signature verification BYPASSED (QSTASH_DEV_BYPASS=1). ' +
-        'This flag has no effect in production.',
+        'This flag is inert on Vercel (VERCEL env var present).',
     );
     return handler;
   }
