@@ -173,8 +173,8 @@ export default function OpsPage() {
   const simulate = () =>
     callAdmin(
       '/api/simulate',
-      { trainId: '12951', requestCount: 500, windowSeconds: 30 },
-      'Simulate surge (500 req / 30 s)',
+      { trainId: '12951', requestCount: 10000, windowSeconds: 30 },
+      'Simulate surge (10,000 req / 30 s)',
     );
   const kill = () =>
     callAdmin('/api/admin/kill-worker', { failNextN: 3, failureMode: '500' }, 'Kill next 3 worker runs');
@@ -355,7 +355,7 @@ export default function OpsPage() {
             <span className="absolute inset-0 -z-0 bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.15),transparent_70%)] opacity-0 transition-opacity group-hover:opacity-100" />
           </button>
           <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            500 requests · 30 seconds · per-train serialization
+            10,000 requests · 30 seconds · per-train serialization
           </div>
         </div>
 
