@@ -32,6 +32,16 @@ export async function idempotencyCheck(args: {
     // Reaching here indicates a plpgsql contract violation.
     throw new Error('idempotency_check returned no row');
   }
+  // postgres-js with prepare:false (required on Supavisor TX pooler) loses the
+  // JSONB type OID metadata and returns jsonb columns as text. Parse back into
+  // the structured object we stored.
+  if (typeof row.response_body === 'string') {
+    try {
+      row.response_body = JSON.parse(row.response_body);
+    } catch {
+      // leave as-is; shouldn't happen given we control the writer
+    }
+  }
   return row;
 }
 

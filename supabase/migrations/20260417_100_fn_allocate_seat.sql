@@ -10,6 +10,7 @@ CREATE OR REPLACE FUNCTION allocate_seat(
   p_passenger     TEXT,
   p_hold_duration INTERVAL DEFAULT '5 minutes'
 ) RETURNS TABLE(seat_id TEXT, version INTEGER) AS $$
+#variable_conflict use_column
 BEGIN
   RETURN QUERY
   UPDATE seats

@@ -579,6 +579,16 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: disable ssoProtection project-wide (PATCH /v10/projects/{id}, ssoProtection: null); preview URLs now public (acceptable for hackathon — no real user data)
 - files: Vercel project settings (no repo files)
 
+## [2026-04-18 02:19 IST] ad-hoc: flowControl.key separator `:` → `.`
+- context: @upstash/qstash 2.8.4 rejects colon in flowControlKey (validator requires [A-Za-z0-9._-]); ADR-004 wrote `train:{id}`
+- decision: use `train.{id}` — same namespace semantics, passes validator; ADR-004 still describes the intent (broker-side per-train serialization), only the string form changes
+- files: infra/qstash/publisher.ts
+
+## [2026-04-18 02:19 IST] ad-hoc: Make migration 160 re-run safe
+- context: bare ALTER TABLE ADD CONSTRAINT errors on re-apply ("already exists"); apply-migrations.ts exits non-zero
+- decision: wrap in DO block with pg_constraint existence check (matches IF NOT EXISTS pattern used for tables + indexes)
+- files: supabase/migrations/20260417_160_fk_seats_booking_id.sql
+
 ---
 
 ## 6. Defense notes

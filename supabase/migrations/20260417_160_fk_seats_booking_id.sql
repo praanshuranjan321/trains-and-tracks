@@ -5,8 +5,16 @@
 -- check below being unavailable for constraints — we rely on migration
 -- tracking to prevent re-runs.
 
-ALTER TABLE seats
-  ADD CONSTRAINT seats_booking_id_fkey
-  FOREIGN KEY (booking_id)
-  REFERENCES bookings(id)
-  ON DELETE SET NULL;
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+     WHERE conname = 'seats_booking_id_fkey'
+       AND conrelid = 'seats'::regclass
+  ) THEN
+    ALTER TABLE seats
+      ADD CONSTRAINT seats_booking_id_fkey
+      FOREIGN KEY (booking_id)
+      REFERENCES bookings(id)
+      ON DELETE SET NULL;
+  END IF;
+END $$;

@@ -7,6 +7,7 @@ CREATE OR REPLACE FUNCTION confirm_booking(
   p_seat_id       TEXT,
   p_payment_id    UUID
 ) RETURNS TABLE(booking_id UUID) AS $$
+#variable_conflict use_column
 BEGIN
   UPDATE seats
      SET status = 'CONFIRMED',

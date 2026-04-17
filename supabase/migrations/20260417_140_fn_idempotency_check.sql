@@ -13,6 +13,7 @@ CREATE OR REPLACE FUNCTION idempotency_check(
   response_body    JSONB,
   source           TEXT
 ) AS $$
+#variable_conflict use_column
 BEGIN
   RETURN QUERY
   WITH ins AS (
