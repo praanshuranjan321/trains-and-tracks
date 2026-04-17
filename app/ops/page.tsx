@@ -278,13 +278,35 @@ export default function OpsPage() {
           </CardContent>
         </Card>
 
-        {/* 6-panel metric grid */}
-        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+        {/* 6-panel metric grid (with HUD connector from header rate-limiter pill) */}
+        <div className="relative grid gap-4 md:grid-cols-3 lg:grid-cols-6">
           <MiniStat label="Ingress / s" value={latestValue(ingressPerSec)} />
           <MiniStat label="Queue depth" value={latestValue(queueDepth)} />
           <MiniStat label="Processing / s" value={latestValue(bookingsPerSec)} />
           <MiniStat label="Success / s" value={latestValue(bookingsPerSec)} accent />
-          <MiniStat label="Rate-limited / s" value={latestValue(rejectionsPerSec)} />
+          <div className="relative" id="rl-tile">
+            <MiniStat label="Rate-limited / s" value={latestValue(rejectionsPerSec)} />
+            {/* HUD connector — dashed line from rate-limiter pill in header to this tile */}
+            <svg
+              className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 hidden lg:block"
+              width="1"
+              height="32"
+              viewBox="0 0 1 32"
+              fill="none"
+              aria-hidden
+            >
+              <line
+                x1="0.5"
+                y1="0"
+                x2="0.5"
+                y2="32"
+                stroke="#00D084"
+                strokeWidth="1"
+                strokeDasharray="2 3"
+                opacity="0.5"
+              />
+            </svg>
+          </div>
           <MiniStat label="DLQ count" value={latestValue(dlqCount)} />
         </div>
 
