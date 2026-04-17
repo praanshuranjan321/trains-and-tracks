@@ -37,7 +37,7 @@ Ordered by risk score (S x L), descending. The top 10 get playbooks in §4.
 | R11 | Hero video not generated / poor quality | 3 | 3 | **9** | Queue Pexels fallback early; one take max | Stock image in place of video |
 | R12 | Developer fatigue -> 4 AM decision errors | 4 | 4 | **16** | Non-negotiable 5-6 AM nap; avoid architectural changes after 3 AM | Defer judgment calls to morning |
 | R13 | Scope creep (adding auth / real payment / multi-seat) | 4 | 3 | **12** | PRD §4.3 WON'T list is law; every addition requires explicit reversal | Reject by reflex |
-| R14 | QStash free tier exceeded during simulate-surge | 2 | 5 | **10** | Acknowledged in PRD §7.2; $1-2 budget OK | Pay overage; continue |
+| R14 | QStash free tier exceeded during simulate-surge | 2 | 5 | **10** | Acknowledged in PRD §7.2; $1-2 budget OK | Pay overage; continue **(REALIZED 2026-04-18 02:50 IST during Phase 3 bigger-burst attempt; resolved via pay-as-you-go upgrade, see §5 log)** |
 | R15 | Env vars missing in Vercel production deploy | 4 | 3 | **12** | `.env.example` template; deploy checklist §6 | Rotate keys via UI; redeploy |
 | R16 | Supabase migration ordering error (FK before referenced table) | 3 | 3 | **9** | Numbered migrations 000->900 in DATA_MODEL.md §6 | Drop + recreate via `supabase db reset` |
 | R17 | prom-client scrape returns garbage (per-instance counters) | 3 | 2 | **6** | Push via remote_write per ADR-008 | Disable metrics; demo works without them |

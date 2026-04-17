@@ -594,6 +594,16 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: propagate change to 5 doc files for judge-facing consistency
 - files: docs/DECISIONS.md (ADR-004 §2 + §3), docs/ARCHITECTURE.md (§1 mermaid, §3 seq, §6 ownership map, §10 ADR ref), docs/API_CONTRACT.md §6.1, docs/CONCEPTS.md §14 Q17
 
+## [2026-04-18 03:19 IST] ad-hoc: Phase 3 gate closed on earlier evidence; bigger burst deferred
+- context: QStash free-tier daily cap (1000 msg/day) exhausted during Phase 3 bigger-burst hardening attempt; single e2e booking + 5-burst already green, zero-duplicate invariant passes, idempotent-hold fix confirmed live in Supabase via `pg_get_functiondef`
+- decision: accept Phase 3 gate as met on existing evidence; bigger burst + Phase 4 surge test re-run after pay-as-you-go upgrade
+- files: (none — acknowledgment only)
+
+## [2026-04-18 03:19 IST] ad-hoc: QStash free → pay-as-you-go upgrade
+- context: hit 1,000/day hard cap during Phase 3 bigger-burst attempt; dossier §4 framed free-tier overage as "no errors on overage" but Upstash currently returns 429 until pay-as-you-go is enabled; Phase 4 simulate-surge (1K requests now, 100K at Phase 8) will exceed free cap by 100×
+- decision: enable pay-as-you-go on QStash (console.upstash.com billing) to unblock surge testing; budget ~$2 hackathon total per PRD §7.2
+- files: (none — Upstash console setting)
+
 ---
 
 ## 6. Defense notes
