@@ -21,6 +21,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ulid } from 'ulid';
 
+import { sql } from '@/lib/db/pg';
 import { createBooking } from '@/lib/db/repositories/bookings';
 import { BookRequestSchema } from '@/lib/validation/book';
 import { computeRequestHash } from '@/lib/idempotency/request-hash';
@@ -250,15 +251,54 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
     qstashMessageId = res.messageId;
   } catch (e: unknown) {
-    log.error(
-      { err: e instanceof Error ? e.message : String(e), bookingId },
-      'qstash_publish_failed',
-    );
-    // At this point booking row exists PENDING but nothing will drive it to
-    // a terminal state. The sweeper only touches RESERVED seats, not PENDING
-    // bookings with no seat allocation attempt. Evolution path (FAILURE_MATRIX
-    // §2.1 "transactional outbox pattern") — for Phase 2 we 502 and accept
-    // a tombstone PENDING row; /api/admin/reset clears these between demos.
+    const errMessage = e instanceof Error ? e.message : String(e);
+    log.error({ err: errMessage, bookingId }, 'qstash_publish_failed');
+
+    // Close the tombstone gap: the booking row exists but nothing will drive
+    // it to terminal. Mark it FAILED + cache the 502 response so replays
+    // return the same failure. Invariants preserved:
+    //   no duplicate — nothing was allocated
+    //   no lost intent — row terminal state visible via poll + idempotent replay
+    //   no silent hang — client sees explicit 502 within request window
+    //
+    // Evolution path: transactional outbox pattern (FAILURE_MATRIX §2.1).
+    try {
+      await sql`
+        UPDATE bookings
+           SET status = 'FAILED',
+               failure_reason = 'upstream_publish_failure',
+               updated_at = now()
+         WHERE id = ${bookingId}::uuid
+           AND status = 'PENDING'
+      `;
+    } catch (rollbackErr) {
+      log.warn(
+        { err: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr) },
+        'booking_rollback_failed',
+      );
+    }
+
+    const errBody = {
+      error: {
+        code: 'upstream_failure',
+        message: 'Could not enqueue booking for processing',
+        request_id: requestId,
+        bookingId,
+      },
+    };
+    try {
+      await commitIdempotencyResponse({
+        key: idempotencyKey,
+        status: 502,
+        body: errBody,
+      });
+    } catch (idemErr) {
+      log.warn(
+        { err: idemErr instanceof Error ? idemErr.message : String(idemErr) },
+        'idem_commit_on_publish_failure_failed',
+      );
+    }
+
     return apiError({
       code: 'upstream_failure',
       message: 'Could not enqueue booking for processing',

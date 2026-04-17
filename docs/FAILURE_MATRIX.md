@@ -46,7 +46,7 @@ Every known failure, grouped by class. Read across: what breaks -> how we notice
 | **Supabase database down** | Cockatiel breaker trips; `tg_breaker_state{dep="postgres"}=2` | 503 + `Retry-After: 30` to clients; circuit reopens on success probe | Multi-AZ Supabase Pro + read replica for polling |
 | **Supavisor pooler down** | Connection errors in logs; breaker trips | Fall back to direct DB URL via env flag flip | Self-managed PgBouncer with failover |
 | **Upstash Redis unreachable** | Redis PING timeout; breaker trips | Rate limiter **fails open** (log warning); idempotency falls to Postgres-only | Multi-region Upstash Global Redis |
-| **Upstash QStash broker down** | Publish throws; caught by try/catch | Write to outbox table (not implemented — documented evolution); client gets 503 | Transactional outbox pattern + worker drainer |
+| **Upstash QStash broker down / quota exhausted** | Publish throws; caught by try/catch | Mark booking `status=FAILED, failure_reason='upstream_publish_failure'` + commit 502 body into `idempotency_keys` + return 502 to client. Three invariants preserved (no duplicate / no lost / no silent hang) — client sees explicit failure, can retry with a fresh key. | Transactional outbox pattern + worker drainer (write booking + outbox row in one txn, async drainer publishes to QStash) |
 | **Grafana Cloud ingest quota exhausted** | `prometheus-remote-write` returns 429 | Logged, ignored (metrics degrade; app still works) | Upgrade to Pro or downsample labels |
 
 ### 2.2 Resource exhaustion

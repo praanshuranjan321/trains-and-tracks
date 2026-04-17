@@ -604,6 +604,12 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: enable pay-as-you-go on QStash (console.upstash.com billing) to unblock surge testing; budget ~$2 hackathon total per PRD §7.2
 - files: (none — Upstash console setting)
 
+## [2026-04-18 03:20 IST] ad-hoc: Ingress publish-failure rollback (close tombstone gap)
+- context: ingress created the booking row before QStash publishJSON; when publish threw (quota / broker outage / network), the catch returned 502 but left bookings row stuck PENDING indefinitely — neither the worker nor the sweeper would ever mark it terminal
+- decision: in the publish-catch, (a) UPDATE bookings SET status=FAILED, failure_reason='upstream_publish_failure' and (b) commit 502 body into idempotency_keys so replays return the same failure. Three invariants preserved: no duplicate (nothing allocated), no lost (terminal row visible via poll + replay), no silent hang (honest 502 within request window)
+- files: app/api/book/route.ts
+- cleanup: 15 stale PENDING bookings from the quota event marked FAILED via one-off UPDATE with failure_reason='qstash_quota_exceeded'
+
 ---
 
 ## 6. Defense notes
