@@ -33,6 +33,7 @@ import { commitIdempotencyResponse } from '@/lib/idempotency/postgres-authority'
 import { maybeInjectChaos, WorkerChaosError } from '@/lib/chaos/worker-gate';
 import { logger } from '@/lib/logging/logger';
 import { record } from '@/lib/metrics/registry';
+import { scheduleMetricsPush } from '@/lib/metrics/pusher';
 import { M } from '@/lib/metrics/names';
 
 export const runtime = 'nodejs';
@@ -66,6 +67,7 @@ function ok(body: Record<string, unknown>): Response {
 }
 
 async function handler(req: NextRequest): Promise<Response> {
+  scheduleMetricsPush();
   const requestId = `req_${ulid().toLowerCase()}`;
   const retried = Number(req.headers.get('upstash-retried') ?? 0);
   const messageId = req.headers.get('upstash-message-id') ?? 'unknown';

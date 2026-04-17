@@ -610,6 +610,16 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - files: app/api/book/route.ts
 - cleanup: 15 stale PENDING bookings from the quota event marked FAILED via one-off UPDATE with failure_reason='qstash_quota_exceeded'
 
+## [2026-04-18 04:03 IST] ad-hoc: Fix sweep_expired_holds — booking_id read AFTER null-set
+- context: `UPDATE seats ... RETURNING seats.booking_id` returns POST-update values; we'd just set booking_id=NULL, so the downstream CTE updating bookings to EXPIRED never matched any id → seats went AVAILABLE but bookings stayed PENDING
+- decision: refactor to SELECT targets first (with FOR UPDATE lock), then run both UPDATEs keyed off the captured seat_id / booking_id. Verified locally
+- files: supabase/migrations/20260417_130_fn_sweep_expired_holds.sql
+
+## [2026-04-18 04:03 IST] ad-hoc: QSTASH_DEV_BYPASS flag for local signature-gated routes
+- context: sweeper, worker, and failure-webhook all wrap verifySignatureAppRouter; local-only testing can't hand-sign the JWT
+- decision: infra/qstash/verifier.ts falls through to the raw handler when NODE_ENV !== 'production' AND QSTASH_DEV_BYPASS=1. Production unchanged. Logs warning on bypass so it's impossible to ship accidentally
+- files: infra/qstash/verifier.ts
+
 ---
 
 ## 6. Defense notes

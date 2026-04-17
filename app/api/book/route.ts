@@ -41,6 +41,7 @@ import { publishAllocateJob } from '@/infra/qstash/publisher';
 import { logger } from '@/lib/logging/logger';
 import { apiError } from '@/lib/errors/api-error';
 import { record } from '@/lib/metrics/registry';
+import { scheduleMetricsPush } from '@/lib/metrics/pusher';
 import { M } from '@/lib/metrics/names';
 
 export const runtime = 'nodejs';
@@ -66,6 +67,7 @@ function requestIdOf(req: NextRequest): string {
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  scheduleMetricsPush();
   const startNs = performance.now();
   const requestId = requestIdOf(req);
   const ip = clientIp(req);

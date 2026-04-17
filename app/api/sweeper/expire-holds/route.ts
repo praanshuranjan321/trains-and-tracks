@@ -15,11 +15,13 @@ import { sweepExpiredHolds } from '@/lib/db/repositories/bookings';
 import { pgPolicy } from '@/lib/resilience/pg-policy';
 import { logger } from '@/lib/logging/logger';
 import { record } from '@/lib/metrics/registry';
+import { scheduleMetricsPush } from '@/lib/metrics/pusher';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 async function handler(_req: NextRequest): Promise<Response> {
+  scheduleMetricsPush();
   try {
     const result = await pgPolicy.execute(() => sweepExpiredHolds());
     if (result.skipped) {
