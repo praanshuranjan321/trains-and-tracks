@@ -229,7 +229,22 @@ export default function BookPage() {
           </div>
         )}
 
-        {grid && (
+        {grid && grid.available === 0 && (
+          <div className="mt-16 flex flex-col items-center gap-4 rounded-xl border border-zinc-700/50 bg-zinc-900/40 py-16 text-center">
+            <div className="font-mono text-[11px] uppercase tracking-widest text-zinc-500">
+              sold out
+            </div>
+            <h2 className="text-4xl font-semibold tracking-tight text-zinc-300">
+              All 500 seats booked
+            </h2>
+            <p className="max-w-md text-sm text-muted-foreground">
+              Mumbai Rajdhani 12951 for tomorrow&apos;s departure is fully confirmed. Try
+              resetting the demo from <Link href="/ops" className="underline">/ops</Link> or wait
+              for the sweeper to release abandoned holds.
+            </p>
+          </div>
+        )}
+        {grid && grid.available > 0 && (
           <div className="mt-10 space-y-2.5">
             {coaches.map(([coach, seats]) => (
               <div key={coach} className="flex items-center gap-4">
