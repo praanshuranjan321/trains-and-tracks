@@ -27,7 +27,7 @@ Every non-trivial decision gets an ADR (Architecture Decision Record). Each ADR 
 | ADR-001 | Next.js 16 App Router on Vercel Fluid Compute (revised from v14 — see §5 log 2026-04-18 01:55 IST) | Accepted |
 | ADR-002 | Supabase Nano + Supavisor TX pooler (port 6543) | Accepted |
 | ADR-003 | QStash HTTP queue over BullMQ / Inngest | Accepted |
-| ADR-004 | QStash Flow Control key = `train:{trainId}`, parallelism=1 | Accepted |
+| ADR-004 | QStash Flow Control key = `train.{trainId}`, parallelism=1 | Accepted |
 | ADR-005 | Two-layer idempotency: Redis NX + Postgres UNIQUE | Accepted |
 | ADR-006 | Single-statement UPDATE with `FOR UPDATE SKIP LOCKED` | Accepted |
 | ADR-007 | Mock PaymentService instead of real gateway | Accepted |
@@ -114,14 +114,14 @@ Every non-trivial decision gets an ADR (Architecture Decision Record). Each ADR 
 
 ---
 
-### ADR-004: QStash Flow Control key = `train:{trainId}`, parallelism = 1
+### ADR-004: QStash Flow Control key = `train.{trainId}`, parallelism = 1
 
 **Context:** Seat allocation must not be concurrent for the same train (to prevent convoy on the `AVAILABLE` index), but must parallelize across trains. Need serialization primitive without an app-level advisory lock.
 
-**Decision:** `publishJSON({ flowControl: { key: 'train:' + trainId, parallelism: 1, rate: 200, period: '1s' } })`.
+**Decision:** `publishJSON({ flowControl: { key: 'train.' + trainId, parallelism: 1, rate: 200, period: '1s' } })`.
 
 **Alternatives:**
-- **Postgres `pg_advisory_lock('train:' + trainId)` in worker** — adds a DB round-trip per message; extra latency; session-lock pitfall on TX pooler.
+- **Postgres `pg_advisory_lock('train.' + trainId)` in worker** — adds a DB round-trip per message; extra latency; session-lock pitfall on TX pooler.
 - **Single global queue** — all bookings serialize; kills multi-train parallelism.
 - **Per-train QStash URL** — more operational surface; manual fan-out.
 
@@ -588,6 +588,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - context: bare ALTER TABLE ADD CONSTRAINT errors on re-apply ("already exists"); apply-migrations.ts exits non-zero
 - decision: wrap in DO block with pg_constraint existence check (matches IF NOT EXISTS pattern used for tables + indexes)
 - files: supabase/migrations/20260417_160_fk_seats_booking_id.sql
+
+## [2026-04-18 02:33 IST] ad-hoc: Doc sweep for `train.` separator (cascade from QStash validator fix)
+- context: earlier ad-hoc fix changed code from train:{id} to train.{id}; ADR-004 + diagrams + concepts Q&A still showed old separator
+- decision: propagate change to 5 doc files for judge-facing consistency
+- files: docs/DECISIONS.md (ADR-004 §2 + §3), docs/ARCHITECTURE.md (§1 mermaid, §3 seq, §6 ownership map, §10 ADR ref), docs/API_CONTRACT.md §6.1, docs/CONCEPTS.md §14 Q17
 
 ---
 

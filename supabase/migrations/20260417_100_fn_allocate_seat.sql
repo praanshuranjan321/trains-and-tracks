@@ -12,6 +12,21 @@ CREATE OR REPLACE FUNCTION allocate_seat(
 ) RETURNS TABLE(seat_id TEXT, version INTEGER) AS $$
 #variable_conflict use_column
 BEGIN
+  -- QStash re-delivery safety: if this booking already has an active hold,
+  -- return it instead of allocating a second seat. Prevents the orphan-seat
+  -- scenario where attempt 1 crashes after SKIP LOCKED but before confirm,
+  -- and attempt 2 allocates a different seat for the same booking.
+  RETURN QUERY
+  SELECT seats.id, seats.version
+    FROM seats
+   WHERE seats.booking_id = p_booking_id
+     AND seats.status = 'RESERVED'
+     AND seats.held_until > now()
+   LIMIT 1;
+
+  IF FOUND THEN RETURN; END IF;
+
+  -- Fresh allocation via SKIP LOCKED — single round-trip, TX-pooler safe.
   RETURN QUERY
   UPDATE seats
      SET status = 'RESERVED',

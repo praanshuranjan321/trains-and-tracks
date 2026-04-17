@@ -359,7 +359,7 @@ Response — 202 Accepted:
 ### 6.1 `POST /api/worker/allocate` — QStash consumer
 
 **Runtime:** Node. **Auth:** `verifySignatureAppRouter` (QStash JWT).
-**Delivery:** at-least-once from QStash Flow Control (`key: train:<id>, parallelism: 1`).
+**Delivery:** at-least-once from QStash Flow Control (`key: train.<id>, parallelism: 1`).
 **Must be idempotent** — processing same message N times == N=1.
 
 #### Request (from QStash)

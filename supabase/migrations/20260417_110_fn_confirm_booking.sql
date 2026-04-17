@@ -8,7 +8,17 @@ CREATE OR REPLACE FUNCTION confirm_booking(
   p_payment_id    UUID
 ) RETURNS TABLE(booking_id UUID) AS $$
 #variable_conflict use_column
+DECLARE
+  v_status TEXT;
 BEGIN
+  -- Re-delivery idempotency: if the booking is already past PENDING, no-op.
+  -- Protects against the rare QStash double-deliver race where two workers
+  -- both allocate distinct seats and would otherwise both confirm.
+  SELECT status::text INTO v_status FROM bookings WHERE bookings.id = p_booking_id;
+  IF v_status IS NULL OR v_status <> 'PENDING' THEN
+    RETURN;
+  END IF;
+
   UPDATE seats
      SET status = 'CONFIRMED',
          held_until = NULL,
@@ -27,10 +37,12 @@ BEGIN
   RETURN QUERY
   UPDATE bookings
      SET status = 'CONFIRMED',
+         seat_id = p_seat_id,
          payment_id = p_payment_id,
          confirmed_at = now(),
          updated_at = now()
    WHERE bookings.id = p_booking_id
+     AND bookings.status = 'PENDING'
   RETURNING bookings.id;
 END;
 $$ LANGUAGE plpgsql;

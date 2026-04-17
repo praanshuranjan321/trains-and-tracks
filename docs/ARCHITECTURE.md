@@ -27,7 +27,7 @@ flowchart LR
   end
 
   subgraph Transport["Transport (Upstash QStash)"]
-    Q[QStash Queue<br/>flowControl key=train:id<br/>parallelism=1, rate=200/s]
+    Q[QStash Queue<br/>flowControl key=train.id<br/>parallelism=1, rate=200/s]
     SCH[QStash Schedule<br/>every 60s]
     DLQ[QStash DLQ]
   end
@@ -141,7 +141,7 @@ sequenceDiagram
     R-->>I: OK (new)
     I->>PG: INSERT idempotency_keys<br/>(CTE+UNION)
     PG-->>I: {source: inserted}
-    I->>Q: publishJSON(flowControl.key=train:12951)
+    I->>Q: publishJSON(flowControl.key=train.12951)
     Q-->>I: {messageId}
     I->>U: 202 Accepted<br/>{jobId, pollUrl}
     I-)GC: waitUntil push histogram
@@ -350,7 +350,7 @@ This table goes into the README verbatim. Judges scanning for "is this a wrapper
 
 | Concern | Vendor provides | We own |
 |---|---|---|
-| Durable message transport | QStash at-least-once + DLQ | **Flow Control key design** (`train:{id}, parallelism: 1`), retry decision tree (`Upstash-Retries`, `Upstash-NonRetryable-Error` opt-out at HTTP 489), DLQ drain endpoint, failure callback routing |
+| Durable message transport | QStash at-least-once + DLQ | **Flow Control key design** (`train.{id}, parallelism: 1`), retry decision tree (`Upstash-Retries`, `Upstash-NonRetryable-Error` opt-out at HTTP 489), DLQ drain endpoint, failure callback routing |
 | Hot-path rate limiting | `@upstash/ratelimit` sliding-window | **Custom Lua sliding-window-log** for admin endpoints (100% accurate), identifier scheme, ephemeral cache hinting |
 | Idempotency primitive | Redis `SET NX EX`, Postgres UNIQUE | **Claim-or-return CTE+UNION engine**, request-hash verification, two-layer reconciler, 24h GC job |
 | Seat allocation | Postgres row lock | **SKIP LOCKED pattern in single-statement UPDATE**, hold/release state machine, `held_until` TTL semantics, pg_cron+advisory-lock sweeper |
@@ -540,7 +540,7 @@ When a judge asks *"how would this handle 10 million users?"* the answer has fou
 | ADR-001 | Next.js App Router on Vercel Fluid Compute | Single deploy; Fluid tolerates concurrent invocations per instance |
 | ADR-002 | Supabase Nano + Supavisor TX pooler (6543) | Free tier sufficient; TX pooler mandatory for serverless |
 | ADR-003 | QStash (HTTP queue) over BullMQ (Redis queue) | BullMQ needs long-running worker — incompatible with Vercel |
-| ADR-004 | Flow Control key = train:{trainId}, parallelism: 1 | Per-train serialization at broker → no app-level advisory lock needed |
+| ADR-004 | Flow Control key = train.{trainId}, parallelism: 1 | Per-train serialization at broker → no app-level advisory lock needed |
 | ADR-005 | Two-layer idempotency (Redis NX + Postgres UNIQUE) | Redis rejects dup in 5ms; Postgres survives Redis eviction |
 | ADR-006 | Single-statement UPDATE ... FOR UPDATE SKIP LOCKED | Single round-trip, plays with TX pooler, scales linearly with workers |
 | ADR-007 | Mock PaymentService (no real gateway) | Controlled failure injection for demo; Rule 4.1 avoidance |
