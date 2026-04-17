@@ -182,16 +182,16 @@ export default function OpsPage() {
       </header>
 
       <section className="mx-auto max-w-7xl space-y-6 px-6 py-8">
-        {/* Admin controls strip */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="font-mono text-sm text-muted-foreground">
-              ADMIN · chaos controls
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-wrap items-end gap-3">
+        {/* Admin secret input (kept subtle) */}
+        <Card className="border-zinc-800/60 bg-zinc-950/40">
+          <CardContent className="flex flex-wrap items-end gap-3 pt-5">
             <div className="flex-1 min-w-[240px] space-y-1.5">
-              <Label htmlFor="admin-secret">ADMIN_SECRET</Label>
+              <Label
+                htmlFor="admin-secret"
+                className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground"
+              >
+                admin secret
+              </Label>
               <Input
                 id="admin-secret"
                 type="password"
@@ -201,19 +201,10 @@ export default function OpsPage() {
                 className="font-mono"
               />
             </div>
-            <Button onClick={simulate} disabled={busy !== null} variant="destructive" className="gap-2">
-              <Play className="h-4 w-4" /> Simulate surge
-            </Button>
-            <Button onClick={kill} disabled={busy !== null} variant="outline" className="gap-2">
-              <Skull className="h-4 w-4" /> Kill next 3
-            </Button>
-            <Button onClick={reset} disabled={busy !== null} variant="outline" className="gap-2">
-              <Trash2 className="h-4 w-4" /> Reset
-            </Button>
           </CardContent>
           {lastAction && (
             <CardContent className="pt-0">
-              <div className="rounded-md border bg-muted/40 p-3 font-mono text-xs text-muted-foreground">
+              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 font-mono text-xs text-muted-foreground">
                 {lastAction}
               </div>
             </CardContent>
@@ -313,6 +304,61 @@ export default function OpsPage() {
         <div className="grid gap-4 md:grid-cols-2">
           <MiniStat label="p95 latency" value={latestValue(p95Latency)} suffix="ms" wide />
           <MiniStat label="p99 latency" value={latestValue(p99Latency)} suffix="ms" wide />
+        </div>
+
+        {/* Simulate Surge — the headline chaos button */}
+        <div className="flex flex-col items-center gap-3 py-4">
+          <button
+            onClick={simulate}
+            disabled={busy !== null || !adminSecret}
+            className="group relative overflow-hidden rounded-lg border-2 border-red-500/60 bg-red-500/10 px-10 py-6 font-mono text-lg uppercase tracking-[0.2em] text-red-400 transition-all hover:border-red-500 hover:bg-red-500/20 hover:text-red-300 hover:shadow-[0_0_40px_rgba(239,68,68,0.4)] disabled:opacity-40 disabled:hover:shadow-none disabled:cursor-not-allowed"
+          >
+            <span className="relative z-10 flex items-center gap-3">
+              <Play className="h-5 w-5" />
+              Simulate Tatkal Surge
+            </span>
+            <span className="absolute inset-0 -z-0 bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.15),transparent_70%)] opacity-0 transition-opacity group-hover:opacity-100" />
+          </button>
+          <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            500 requests · 30 seconds · per-train serialization
+          </div>
+        </div>
+
+        {/* Admin strip — secondary chaos controls */}
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <Button
+            onClick={kill}
+            disabled={busy !== null || !adminSecret}
+            variant="outline"
+            size="sm"
+            className="gap-2 font-mono text-[11px] uppercase tracking-widest"
+          >
+            <Skull className="h-3.5 w-3.5" /> kill worker
+          </Button>
+          <Button
+            onClick={reset}
+            disabled={busy !== null || !adminSecret}
+            variant="outline"
+            size="sm"
+            className="gap-2 font-mono text-[11px] uppercase tracking-widest"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> reset demo
+          </Button>
+          <Link
+            href="#"
+            onClick={async (e) => {
+              e.preventDefault();
+              if (!adminSecret) return;
+              const res = await fetch('/api/admin/dlq', {
+                headers: { Authorization: `Bearer ${adminSecret}` },
+              });
+              const body = (await res.json()) as { total?: number; jobs?: unknown[] };
+              setLastAction(`DLQ: ${body.total ?? 0} entries · ${JSON.stringify(body.jobs?.slice(0, 2) ?? [])}`);
+            }}
+            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-foreground hover:bg-muted"
+          >
+            dlq list
+          </Link>
         </div>
 
         {/* Grafana iframe slot */}
