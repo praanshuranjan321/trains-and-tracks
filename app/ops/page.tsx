@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, Play, RefreshCw, Skull, Trash2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Clock, Play, RefreshCw, Skull, Trash2, XCircle } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -25,7 +25,6 @@ import {
   YAxis,
 } from 'recharts';
 
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,6 +39,16 @@ interface InsightResp {
   metric: string;
   unit: string;
   points: InsightPoint[];
+}
+
+interface RecentBooking {
+  id: string;
+  status: 'PENDING' | 'CONFIRMED' | 'FAILED' | 'EXPIRED';
+  seatId: string | null;
+  passengerName: string;
+  failureReason: string | null;
+  createdAt: string;
+  confirmedAt: string | null;
 }
 
 const POLL_MS = 2000;
@@ -76,11 +85,37 @@ export default function OpsPage() {
   const [adminSecret, setAdminSecret] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
+  const [recent, setRecent] = useState<RecentBooking[]>([]);
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem(SS_KEY) : null;
     if (saved) setAdminSecret(saved);
   }, []);
+
+  // Poll recent bookings — admin-gated, so only fires when token present.
+  useEffect(() => {
+    if (!adminSecret) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/admin/recent-bookings?limit=10', {
+          headers: { Authorization: `Bearer ${adminSecret}` },
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as { bookings: RecentBooking[] };
+        if (alive) setRecent(body.bookings ?? []);
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const t = setInterval(tick, 3000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [adminSecret]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -361,6 +396,46 @@ export default function OpsPage() {
           </Link>
         </div>
 
+        {/* Live last-10 bookings */}
+        <Card className="border-zinc-800/60 bg-zinc-950/40">
+          <CardHeader className="pb-3">
+            <CardTitle className="font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
+              last 10 bookings · live
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {recent.length === 0 ? (
+              <div className="py-8 text-center font-mono text-xs text-muted-foreground">
+                {adminSecret ? 'no bookings yet' : 'paste admin secret to enable'}
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-800/60">
+                {recent.map((b) => (
+                  <div key={b.id} className="flex items-center gap-3 py-2 font-mono text-[11px]">
+                    <StatusIcon status={b.status} />
+                    <span className="w-20 shrink-0 text-muted-foreground">{b.seatId ?? '—'}</span>
+                    <span className="flex-1 truncate">{b.passengerName}</span>
+                    <span className="text-muted-foreground">
+                      {new Date(b.createdAt).toLocaleTimeString('en-GB', { hour12: false })}
+                    </span>
+                    <span
+                      className={`w-24 shrink-0 text-right uppercase tracking-widest text-[10px] ${
+                        b.status === 'CONFIRMED'
+                          ? 'text-[#00D084]'
+                          : b.status === 'PENDING'
+                            ? 'text-amber-400'
+                            : 'text-destructive'
+                      }`}
+                    >
+                      {b.status}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Grafana iframe slot */}
         <Card>
           <CardHeader className="pb-3">
@@ -394,6 +469,12 @@ export default function OpsPage() {
       </section>
     </main>
   );
+}
+
+function StatusIcon({ status }: { status: RecentBooking['status'] }) {
+  if (status === 'CONFIRMED') return <CheckCircle2 className="h-3.5 w-3.5 text-[#00D084]" />;
+  if (status === 'PENDING') return <Clock className="h-3.5 w-3.5 text-amber-400" />;
+  return <XCircle className="h-3.5 w-3.5 text-destructive" />;
 }
 
 function MiniStat({
