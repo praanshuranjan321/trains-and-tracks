@@ -289,9 +289,17 @@ export default function BookPage() {
           )}
 
           {outcome.kind === 'polling' && (
-            <div className="flex items-center gap-2 py-4 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Worker processing… attempt {outcome.attempt + 1}/{POLL_MAX}
+            <div className="flex flex-col items-center gap-3 py-8">
+              <div className="relative inline-flex h-3 w-3">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00D084] opacity-75" />
+                <span className="relative inline-flex h-3 w-3 rounded-full bg-[#00D084]" />
+              </div>
+              <div className="font-mono text-sm uppercase tracking-wider text-muted-foreground">
+                Reserving seat…
+              </div>
+              <div className="font-mono text-[10px] text-muted-foreground/70">
+                attempt {outcome.attempt + 1}/{POLL_MAX}
+              </div>
             </div>
           )}
 
