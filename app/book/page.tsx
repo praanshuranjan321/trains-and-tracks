@@ -52,10 +52,17 @@ const POLL_MS = 1000;
 const POLL_MAX = 60;
 
 function statusColor(s: SeatInfo['status'], selected: boolean) {
-  if (selected) return 'bg-primary text-primary-foreground ring-2 ring-primary';
-  if (s === 'AVAILABLE') return 'bg-emerald-500/15 text-emerald-400 hover:bg-emerald-500/30 cursor-pointer';
-  if (s === 'RESERVED') return 'bg-amber-500/20 text-amber-400 cursor-not-allowed';
-  return 'bg-destructive/20 text-destructive/80 cursor-not-allowed';
+  if (selected) {
+    return 'bg-[#00D084] text-black border-[#00D084] shadow-[0_0_14px_rgba(0,208,132,0.6)]';
+  }
+  if (s === 'AVAILABLE') {
+    return 'border-white/50 text-white/70 hover:border-white hover:bg-white/5 cursor-pointer';
+  }
+  if (s === 'RESERVED') {
+    return 'bg-amber-500/60 text-amber-50 border-amber-500/60 animate-pulse cursor-not-allowed';
+  }
+  // CONFIRMED
+  return 'bg-zinc-700/60 text-zinc-500 border-zinc-700/60 cursor-not-allowed';
 }
 
 export default function BookPage() {
@@ -220,7 +227,7 @@ export default function BookPage() {
                       onClick={() => openBooking(s)}
                       disabled={s.status !== 'AVAILABLE'}
                       title={`${s.id} · ${s.status}`}
-                      className={`aspect-square rounded-sm border border-transparent text-[10px] font-mono ${statusColor(
+                      className={`h-6 w-6 shrink-0 rounded-[5px] border text-[9px] font-mono leading-none transition-all duration-150 ${statusColor(
                         s.status,
                         s.id === selectedSeatId,
                       )}`}
