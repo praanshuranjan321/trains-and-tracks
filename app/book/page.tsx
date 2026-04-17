@@ -257,24 +257,32 @@ export default function BookPage() {
       </section>
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-mono">{selectedSeatId ?? 'Book seat'}</DialogTitle>
-            <DialogDescription>
-              Ticket ₹1,260. Allocation is first-available per our SKIP LOCKED primitive — you may
-              not get this exact seat if someone else beats you, but you&apos;ll get a distinct one
-              or an honest failure.
+            <div className="flex items-center justify-between">
+              <DialogTitle className="font-mono text-xl tracking-tight">
+                {selectedSeatId ?? 'Book seat'}
+              </DialogTitle>
+              <div className="font-mono text-lg text-[#00D084]">₹1,260</div>
+            </div>
+            <DialogDescription className="text-xs">
+              Allocation is first-available per SKIP LOCKED. You&apos;ll get this seat or a distinct
+              available one — never a duplicate, never a hang.
             </DialogDescription>
           </DialogHeader>
 
           {outcome.kind === 'idle' && (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="name">Passenger name</Label>
-                <Input id="name" value={passengerName} onChange={(e) => setPassengerName(e.target.value)} placeholder="Rahul Sharma" />
+                <Label htmlFor="name" className="text-[11px] uppercase tracking-wider font-mono text-muted-foreground">
+                  Passenger name
+                </Label>
+                <Input id="name" value={passengerName} onChange={(e) => setPassengerName(e.target.value)} placeholder="Rahul Sharma" autoFocus />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="phone">Phone (optional)</Label>
+                <Label htmlFor="phone" className="text-[11px] uppercase tracking-wider font-mono text-muted-foreground">
+                  Phone (optional)
+                </Label>
                 <Input id="phone" value={passengerPhone} onChange={(e) => setPassengerPhone(e.target.value)} placeholder="+919876543210" />
               </div>
             </div>
@@ -308,8 +316,12 @@ export default function BookPage() {
             {outcome.kind === 'idle' && (
               <>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button onClick={submit} disabled={submitting || !passengerName.trim()}>
-                  {submitting ? 'Submitting…' : 'Book seat · ₹1,260'}
+                <Button
+                  onClick={submit}
+                  disabled={submitting || !passengerName.trim()}
+                  className="bg-[#00D084] text-black hover:bg-[#00D084]/90 font-mono text-[13px] uppercase tracking-wider px-5"
+                >
+                  {submitting ? 'Submitting…' : 'Book Now'}
                 </Button>
               </>
             )}
