@@ -295,7 +295,7 @@ sequenceDiagram
 
 | Component | Version | Why | Why not alternative |
 |---|---|---|---|
-| Next.js | 14.2+ (App Router) | Route Handlers map 1:1 to HTTP queue receivers; Fluid Compute tolerates concurrent invocations per instance; single deploy for API + UI | Fastify on Railway = second deployment surface; no reason for us |
+| Next.js | 16.x (App Router) | Route Handlers map 1:1 to HTTP queue receivers; Fluid Compute tolerates concurrent invocations per instance; single deploy for API + UI. *(Revised from 14.2+ on 2026-04-18; dynamic `params` are now `Promise<{...}>`.)* | Fastify on Railway = second deployment surface; no reason for us |
 | TypeScript | 5.4+ (`strict: true`) | Zod schemas + Supabase generated types end-to-end; type errors caught at build | JavaScript: loses the compile-time safety that powers Rule 4.1 claim |
 | Node runtime (selected routes) | 20.x LTS (Vercel default) | `pg` / crypto / `verifySignatureAppRouter` need Node APIs | Edge runtime can't do Postgres TCP |
 | Edge runtime (selected routes) | — | Used for `/api/book/[jobId]` poll, `/api/healthz` — Redis-only reads; <50ms cold start | Node adds 300–1500ms cold start |
