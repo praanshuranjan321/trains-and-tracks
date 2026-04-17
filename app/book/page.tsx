@@ -304,9 +304,37 @@ export default function BookPage() {
           )}
 
           {outcome.kind === 'success' && (
-            <div className="rounded-md border border-emerald-500/50 bg-emerald-500/10 p-4 text-sm">
-              <div className="font-mono text-base text-emerald-400">Booked · {outcome.seatId}</div>
-              <div className="mt-1 text-muted-foreground">Job {outcome.jobId}</div>
+            <div className="relative overflow-hidden rounded-lg border border-[#00D084]/40 bg-[#00D084]/[0.06] p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="font-mono text-[10px] uppercase tracking-widest text-[#00D084]/80">
+                    Confirmed
+                  </div>
+                  <div className="mt-1 font-mono text-3xl tracking-tight text-[#00D084]">
+                    {outcome.seatId}
+                  </div>
+                </div>
+                <div className="text-right font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                  <div>Passenger</div>
+                  <div className="mt-0.5 text-sm normal-case tracking-normal text-foreground">
+                    {passengerName}
+                  </div>
+                </div>
+              </div>
+              <div className="mt-4 flex items-end justify-between border-t border-[#00D084]/20 pt-3 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+                <div>
+                  <div>Booking ID</div>
+                  <div className="mt-0.5 truncate text-[11px] normal-case tracking-normal text-foreground/80">
+                    {outcome.jobId}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div>Amount</div>
+                  <div className="mt-0.5 text-sm normal-case tracking-normal text-foreground">
+                    ₹1,260
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 
