@@ -36,35 +36,60 @@ const CASE_STUDIES = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
-      {/* Hero */}
+      {/* Hero — Pexels crowded-station bg + dark gradient overlay */}
       <section className="relative overflow-hidden border-b">
-        <div className="absolute inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_oklch(0.15_0.05_240_/_0.6),_transparent_70%)]" />
-        <div className="mx-auto max-w-6xl px-6 py-24 sm:py-32">
+        <div
+          className="absolute inset-0 -z-20 bg-cover bg-center"
+          style={{
+            backgroundImage:
+              'url(https://images.pexels.com/photos/2031024/pexels-photo-2031024.jpeg?auto=compress&cs=tinysrgb&w=1920)',
+          }}
+        />
+        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/70 via-background/85 to-background" />
+        <div className="mx-auto max-w-6xl px-6 py-28 sm:py-40">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Train className="h-4 w-4" />
-            <span className="font-mono">Trains and Tracks</span>
+            <span className="font-mono uppercase tracking-widest text-[11px]">Trains and Tracks</span>
           </div>
-          <h1 className="mt-6 text-5xl font-semibold tracking-tight sm:text-7xl">
-            Effectively-once seat allocation
-            <span className="block text-muted-foreground">under traffic you can&apos;t plan for.</span>
+          <h1
+            className="mt-8 font-bold uppercase leading-[0.9] tracking-tight text-foreground"
+            style={{
+              fontSize: 'clamp(4rem, 10vw, 8rem)',
+              fontFamily: '"Anton", "Bebas Neue", "Impact", system-ui, sans-serif',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            Exactly once.
+            <span className="block text-[#00D084]">Every time.</span>
           </h1>
-          <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-            A simplified IRCTC-Tatkal replacement that handles 100K requests in 10 seconds
-            with zero duplicate allocations and zero payment-without-ticket outcomes.
-            Built for a hackathon from composable correctness primitives — not vendor magic.
+          <p
+            className="mt-8 max-w-2xl font-mono text-sm uppercase tracking-widest text-muted-foreground sm:text-base"
+            style={{ letterSpacing: '0.15em' }}
+          >
+            A reservation engine that survives Tatkal. No duplicates. No hangs. No silent drops.
           </p>
-          <div className="mt-10 flex flex-wrap gap-3">
-            <Link href="/book" className={buttonVariants({ size: 'lg', className: 'gap-2' })}>
-              Book a seat <ArrowRight className="h-4 w-4" />
+          <div className="mt-12 flex flex-wrap gap-3">
+            <Link
+              href="/book"
+              className={buttonVariants({
+                size: 'lg',
+                className: 'gap-2 bg-[#00D084] text-black hover:bg-[#00D084]/90 font-mono uppercase tracking-widest text-xs px-6',
+              })}
+            >
+              Try booking <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/ops"
-              className={buttonVariants({ size: 'lg', variant: 'outline', className: 'gap-2' })}
+              className={buttonVariants({
+                size: 'lg',
+                variant: 'outline',
+                className: 'gap-2 font-mono uppercase tracking-widest text-xs px-6',
+              })}
             >
-              Open Ops Dashboard
+              See it running
             </Link>
           </div>
-          <div className="mt-8 flex flex-wrap gap-2 text-xs">
+          <div className="mt-10 flex flex-wrap gap-2 text-xs">
             <Badge variant="secondary" className="font-mono">FOR UPDATE SKIP LOCKED</Badge>
             <Badge variant="secondary" className="font-mono">Stripe idempotency contract</Badge>
             <Badge variant="secondary" className="font-mono">QStash Flow Control</Badge>
