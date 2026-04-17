@@ -15,6 +15,48 @@ export const qstash = new Client({
   baseUrl: process.env.QSTASH_URL,
 });
 
+// ---- Local-dev in-process queue (bypass mode only) --------------------------
+// Tail-chain per Flow Control key. Each trainId gets its own Promise chain so
+// workers for the same train run serially (parallelism: 1), while different
+// trains are independent. This mirrors QStash Flow Control.
+const LOCAL_QUEUES = new Map<string, Promise<unknown>>();
+
+function enqueueLocalWorker(args: AllocateJobPayload, workerUrl: string): void {
+  const key = `train.${args.trainId}`;
+  const tail = LOCAL_QUEUES.get(key) ?? Promise.resolve();
+  const next = tail
+    .then(() => dispatchLocalWorker(args, workerUrl))
+    .catch((e) => {
+      // eslint-disable-next-line no-console
+      console.warn('[qstash-bypass] local worker chain:', e);
+    });
+  LOCAL_QUEUES.set(key, next);
+}
+
+async function dispatchLocalWorker(
+  args: AllocateJobPayload,
+  workerUrl: string,
+): Promise<void> {
+  try {
+    const res = await fetch(workerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(args),
+    });
+    if (!res.ok) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[qstash-bypass] worker ${res.status} for booking ${args.bookingId}`,
+      );
+    }
+    // Drain body so the socket isn't leaked in warm Node.
+    await res.text().catch(() => {});
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.warn('[qstash-bypass] worker dispatch error:', e);
+  }
+}
+
 export interface AllocateJobPayload {
   bookingId: string;
   idempotencyKey: string;
@@ -41,17 +83,12 @@ export async function publishAllocateJob(args: AllocateJobPayload): Promise<{ me
     process.env.NODE_ENV !== 'production';
 
   if (bypass) {
-    const workerUrl = `${appUrl}/api/worker/allocate`;
-    // Fire-and-forget — /api/book returns 202 before the worker completes,
-    // matching QStash semantics. Errors in the fetch only log.
-    void fetch(workerUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(args),
-    }).catch((e) => {
-      // eslint-disable-next-line no-console
-      console.warn('[qstash-bypass] worker dispatch failed:', e);
-    });
+    // In-process Flow Control: serialize workers per trainId (parallelism: 1,
+    // matching production QStash config via ADR-004). Without this, a 10K
+    // surge would fire 10K concurrent fetch()es on the same Node process,
+    // saturating the event loop and starving the ingress path. The tail-chain
+    // pattern keeps the book-response path O(1) while workers run FIFO.
+    enqueueLocalWorker(args, `${appUrl}/api/worker/allocate`);
     const messageId = `local_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     return { messageId };
   }
