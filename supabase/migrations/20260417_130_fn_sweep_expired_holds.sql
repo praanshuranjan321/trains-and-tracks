@@ -18,7 +18,28 @@ BEGIN
     RETURN;
   END IF;
 
-  WITH expired AS (
+  -- Capture seat IDs AND their pre-update booking_ids in one materialized
+  -- SELECT. (UPDATE ... RETURNING returns the NEW row, so if we combined the
+  -- capture with the UPDATE we'd read the nulled booking_id — bug fixed here.)
+  WITH targets AS (
+    SELECT seats.id AS seat_id, seats.booking_id
+      FROM seats
+     WHERE seats.status = 'RESERVED'
+       AND seats.held_until < now()
+     FOR UPDATE
+  ),
+  expired_bookings AS (
+    UPDATE bookings
+       SET status = 'EXPIRED',
+           failure_reason = 'hold_expired',
+           updated_at = now()
+     WHERE bookings.id IN (
+       SELECT booking_id FROM targets WHERE booking_id IS NOT NULL
+     )
+       AND bookings.status = 'PENDING'
+    RETURNING bookings.id
+  ),
+  expired_seats AS (
     UPDATE seats
        SET status = 'AVAILABLE',
            booking_id = NULL,
@@ -26,20 +47,10 @@ BEGIN
            held_until = NULL,
            version = seats.version + 1,
            updated_at = now()
-     WHERE seats.status = 'RESERVED'
-       AND seats.held_until < now()
-    RETURNING seats.booking_id AS booking_id
-  ),
-  expired_bookings AS (
-    UPDATE bookings
-       SET status = 'EXPIRED',
-           failure_reason = 'hold_expired',
-           updated_at = now()
-     WHERE bookings.id IN (SELECT booking_id FROM expired WHERE booking_id IS NOT NULL)
-       AND bookings.status = 'PENDING'
-    RETURNING bookings.id
+     WHERE seats.id IN (SELECT seat_id FROM targets)
+    RETURNING seats.id
   )
-  SELECT COUNT(*) INTO v_count FROM expired;
+  SELECT COUNT(*) INTO v_count FROM expired_seats;
 
   swept_count := v_count;
   skipped := FALSE;
