@@ -43,15 +43,18 @@ interface InsightResp {
 }
 
 const POLL_MS = 2000;
+const HERO_RANGE = '60s';
 const SS_KEY = 'admin_secret';
 
-function useInsight(metric: string): InsightPoint[] {
+function useInsight(metric: string, range = '5m', step = '5s'): InsightPoint[] {
   const [points, setPoints] = useState<InsightPoint[]>([]);
   useEffect(() => {
     let alive = true;
     const tick = async () => {
       try {
-        const res = await fetch(`/api/insights/${metric}?range=5m&step=5s`, { cache: 'no-store' });
+        const res = await fetch(`/api/insights/${metric}?range=${range}&step=${step}`, {
+          cache: 'no-store',
+        });
         if (!res.ok) return;
         const body = (await res.json()) as InsightResp;
         if (alive) setPoints(body.points ?? []);
@@ -65,7 +68,7 @@ function useInsight(metric: string): InsightPoint[] {
       alive = false;
       clearInterval(t);
     };
-  }, [metric]);
+  }, [metric, range, step]);
   return points;
 }
 
@@ -84,7 +87,7 @@ export default function OpsPage() {
     if (adminSecret) sessionStorage.setItem(SS_KEY, adminSecret);
   }, [adminSecret]);
 
-  const bookingsPerSec = useInsight('bookings_per_sec');
+  const bookingsPerSec = useInsight('bookings_per_sec', HERO_RANGE, '2s');
   const ingressPerSec = useInsight('ingress_per_sec');
   const rejectionsPerSec = useInsight('rejections_per_sec');
   const p95Latency = useInsight('p95_latency_ms');
@@ -207,38 +210,57 @@ export default function OpsPage() {
           )}
         </Card>
 
-        {/* Hero chart */}
-        <Card>
+        {/* Hero chart — bookings/sec last 60s */}
+        <Card className="border-zinc-800/60 bg-zinc-950/40">
           <CardHeader className="pb-3">
-            <CardTitle className="flex items-baseline justify-between font-mono text-sm text-muted-foreground">
-              <span>BOOKINGS / SEC</span>
-              <span className="text-3xl text-foreground">
+            <CardTitle className="flex items-baseline justify-between font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
+              <span>bookings / sec · last 60s</span>
+              <span className="font-mono text-4xl tabular-nums text-[#00D084]">
                 {latestValue(bookingsPerSec)?.toFixed(2) ?? '—'}
               </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-72">
+            <div className="h-80">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={heroData} margin={{ top: 10, right: 20, bottom: 0, left: -10 }}>
-                  <CartesianGrid stroke="oklch(0.25 0 0)" strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="t" tick={{ fontSize: 11, fill: 'oklch(0.6 0 0)' }} />
-                  <YAxis tick={{ fontSize: 11, fill: 'oklch(0.6 0 0)' }} />
+                  <defs>
+                    <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#00D084" stopOpacity={0.3} />
+                      <stop offset="100%" stopColor="#00D084" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid stroke="oklch(0.22 0 0)" strokeDasharray="2 4" vertical={false} />
+                  <XAxis
+                    dataKey="t"
+                    tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)', fontFamily: 'ui-monospace, monospace' }}
+                    axisLine={{ stroke: 'oklch(0.22 0 0)' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)', fontFamily: 'ui-monospace, monospace' }}
+                    axisLine={{ stroke: 'oklch(0.22 0 0)' }}
+                    tickLine={false}
+                    width={32}
+                  />
                   <Tooltip
                     contentStyle={{
-                      background: 'oklch(0.14 0 0)',
+                      background: 'oklch(0.12 0 0)',
                       border: '1px solid oklch(0.25 0 0)',
+                      borderRadius: 6,
                       fontFamily: 'ui-monospace, monospace',
-                      fontSize: 12,
+                      fontSize: 11,
                     }}
+                    labelStyle={{ color: 'oklch(0.6 0 0)', textTransform: 'uppercase', fontSize: 10 }}
                   />
                   <Line
                     type="monotone"
                     dataKey="v"
-                    stroke="oklch(0.75 0.18 145)"
+                    stroke="#00D084"
                     strokeWidth={2}
                     dot={false}
                     isAnimationActive={false}
+                    fill="url(#heroFill)"
                   />
                 </LineChart>
               </ResponsiveContainer>
