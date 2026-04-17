@@ -85,9 +85,12 @@ export default function OpsPage() {
   }, [adminSecret]);
 
   const bookingsPerSec = useInsight('bookings_per_sec');
+  const ingressPerSec = useInsight('ingress_per_sec');
   const rejectionsPerSec = useInsight('rejections_per_sec');
   const p95Latency = useInsight('p95_latency_ms');
+  const p99Latency = useInsight('p99_latency_ms');
   const queueDepth = useInsight('queue_depth');
+  const dlqCount = useInsight('dlq_count');
 
   const heroData = useMemo(
     () =>
@@ -243,11 +246,19 @@ export default function OpsPage() {
           </CardContent>
         </Card>
 
-        {/* Three mini tiles */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <MiniStat label="Rejections / s" value={latestValue(rejectionsPerSec)} />
-          <MiniStat label="p95 latency" value={latestValue(p95Latency)} suffix="ms" />
+        {/* 6-panel metric grid */}
+        <div className="grid gap-4 md:grid-cols-3 lg:grid-cols-6">
+          <MiniStat label="Ingress / s" value={latestValue(ingressPerSec)} />
           <MiniStat label="Queue depth" value={latestValue(queueDepth)} />
+          <MiniStat label="Processing / s" value={latestValue(bookingsPerSec)} />
+          <MiniStat label="Success / s" value={latestValue(bookingsPerSec)} accent />
+          <MiniStat label="Rate-limited / s" value={latestValue(rejectionsPerSec)} />
+          <MiniStat label="DLQ count" value={latestValue(dlqCount)} />
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <MiniStat label="p95 latency" value={latestValue(p95Latency)} suffix="ms" wide />
+          <MiniStat label="p99 latency" value={latestValue(p99Latency)} suffix="ms" wide />
         </div>
 
         {/* Grafana iframe slot */}
@@ -285,14 +296,32 @@ export default function OpsPage() {
   );
 }
 
-function MiniStat({ label, value, suffix }: { label: string; value: number | null; suffix?: string }) {
+function MiniStat({
+  label,
+  value,
+  suffix,
+  accent,
+  wide,
+}: {
+  label: string;
+  value: number | null;
+  suffix?: string;
+  accent?: boolean;
+  wide?: boolean;
+}) {
   return (
-    <Card>
+    <Card className="border-zinc-800/60 bg-zinc-950/40">
       <CardHeader className="pb-2">
-        <CardTitle className="font-mono text-xs text-muted-foreground">{label}</CardTitle>
+        <CardTitle
+          className={`font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground ${wide ? 'text-xs' : ''}`}
+        >
+          {label}
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="font-mono text-3xl">
+        <div
+          className={`font-mono tabular-nums ${wide ? 'text-4xl' : 'text-3xl'} ${accent ? 'text-[#00D084]' : ''}`}
+        >
           {value === null ? '—' : value.toFixed(2)}
           {suffix && <span className="ml-1 text-sm text-muted-foreground">{suffix}</span>}
         </div>
