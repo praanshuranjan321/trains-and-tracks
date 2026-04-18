@@ -11,24 +11,39 @@ import { BrokenCircuitError } from 'cockatiel';
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
 
-/** Human metric name → PromQL. Allowlist prevents arbitrary query execution. */
+/**
+ * Human metric name → PromQL. Allowlist prevents arbitrary query execution.
+ * `{ENV}` is replaced at request time with `env="<current env>"` so local-dev
+ * traffic and production traffic render on separate series even though they
+ * share one Grafana Cloud tenant. Every metric selector carries the label via
+ * `registry.setDefaultLabels`.
+ */
 const QUERIES: Record<string, string> = {
   bookings_per_sec:
-    'sum(rate(tg_allocations_total{outcome="confirmed"}[1m]))',
+    'sum(rate(tg_allocations_total{outcome="confirmed",{ENV}}[1m]))',
   ingress_per_sec:
-    'sum(rate(tg_booking_requests_total[1m]))',
+    'sum(rate(tg_booking_requests_total{{ENV}}[1m]))',
   rejections_per_sec:
-    'sum by (reason)(rate(tg_rejections_total[1m]))',
+    'sum by (reason)(rate(tg_rejections_total{{ENV}}[1m]))',
   p95_latency_ms:
-    'histogram_quantile(0.95, sum by (le,route)(rate(tg_http_request_duration_seconds_bucket[1m]))) * 1000',
+    'histogram_quantile(0.95, sum by (le,route)(rate(tg_http_request_duration_seconds_bucket{{ENV}}[1m]))) * 1000',
   p99_latency_ms:
-    'histogram_quantile(0.99, sum by (le,route)(rate(tg_http_request_duration_seconds_bucket[1m]))) * 1000',
-  queue_depth: 'sum(tg_queue_depth)',
-  seats_remaining: 'sum(tg_seats_remaining)',
-  retries_per_sec: 'sum(rate(tg_retries_total[1m]))',
-  dlq_count: 'sum(tg_dlq_total)',
-  breaker_state: 'max(tg_breaker_state)',
+    'histogram_quantile(0.99, sum by (le,route)(rate(tg_http_request_duration_seconds_bucket{{ENV}}[1m]))) * 1000',
+  queue_depth: 'sum(tg_queue_depth{{ENV}})',
+  seats_remaining: 'sum(tg_seats_remaining{{ENV}})',
+  retries_per_sec: 'sum(rate(tg_retries_total{{ENV}}[1m]))',
+  dlq_count: 'sum(tg_dlq_total{{ENV}})',
+  breaker_state: 'max(tg_breaker_state{{ENV}})',
 };
+
+/** Which env's metrics to query. Caller can override via `?env=` for the
+ *  "I'm on local but want to peek at production" case. Default matches the
+ *  process's own env label (same precedence as the emitter side). */
+function envLabelFor(req: NextRequest): string {
+  const override = new URL(req.url).searchParams.get('env');
+  if (override && /^[A-Za-z0-9_-]{1,32}$/.test(override)) return override;
+  return process.env.METRICS_ENV ?? process.env.VERCEL_ENV ?? 'local';
+}
 
 interface PromPoint {
   t: number;
@@ -61,8 +76,8 @@ export async function GET(
   const { metric } = await params;
   const requestId = requestIdFrom(req);
 
-  const query = QUERIES[metric];
-  if (!query) {
+  const template = QUERIES[metric];
+  if (!template) {
     return NextResponse.json(
       {
         error: {
@@ -74,6 +89,11 @@ export async function GET(
       { status: 400, headers: { 'X-Request-ID': requestId } },
     );
   }
+
+  // Substitute env label into the allowlisted template. `envLabelFor` returns
+  // only [A-Za-z0-9_-], so the interpolation is safe from PromQL injection.
+  const envLabel = envLabelFor(req);
+  const query = template.replaceAll('{ENV}', `env="${envLabel}"`);
 
   const url = process.env.GRAFANA_PROM_READ_URL;
   const user = process.env.GRAFANA_PROM_USER;

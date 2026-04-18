@@ -46,6 +46,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   `;
 
   // Per-second time series — last 60s, 1s buckets.
+  //
+  // Three separate per-event CTEs keyed on the RIGHT timestamp column each
+  // (confirmed_at for confirms, updated_at for failures, created_at for
+  // ingress), left-joined to a `seconds` spine. The previous single-join
+  // design filtered bookings by created_at then summed over confirmed_at,
+  // which silently drops every row where confirm landed >2s after create —
+  // exactly what happens under surge, so the chart sat at 0 while 500
+  // confirmations had already hit the DB.
   const perSec = await sql<{ t: number; confirmed: number; failed: number; ingress: number }[]>`
     WITH seconds AS (
       SELECT generate_series(
@@ -53,15 +61,39 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
         date_trunc('second', now()),
         interval '1 second'
       ) AS sec
+    ),
+    confirmed_per_sec AS (
+      SELECT date_trunc('second', confirmed_at) AS sec, COUNT(*)::int AS n
+      FROM bookings
+      WHERE status = 'CONFIRMED'
+        AND confirmed_at >= date_trunc('second', now()) - interval '59 seconds'
+        AND confirmed_at <= date_trunc('second', now()) + interval '1 second'
+      GROUP BY 1
+    ),
+    failed_per_sec AS (
+      SELECT date_trunc('second', updated_at) AS sec, COUNT(*)::int AS n
+      FROM bookings
+      WHERE status = 'FAILED'
+        AND updated_at >= date_trunc('second', now()) - interval '59 seconds'
+        AND updated_at <= date_trunc('second', now()) + interval '1 second'
+      GROUP BY 1
+    ),
+    ingress_per_sec AS (
+      SELECT date_trunc('second', created_at) AS sec, COUNT(*)::int AS n
+      FROM bookings
+      WHERE created_at >= date_trunc('second', now()) - interval '59 seconds'
+        AND created_at <= date_trunc('second', now()) + interval '1 second'
+      GROUP BY 1
     )
     SELECT
       EXTRACT(EPOCH FROM s.sec)::int AS t,
-      COALESCE(SUM(CASE WHEN b.status='CONFIRMED' AND b.confirmed_at >= s.sec AND b.confirmed_at < s.sec + interval '1 second' THEN 1 ELSE 0 END), 0)::int AS confirmed,
-      COALESCE(SUM(CASE WHEN b.status='FAILED' AND b.updated_at >= s.sec AND b.updated_at < s.sec + interval '1 second' THEN 1 ELSE 0 END), 0)::int AS failed,
-      COALESCE(SUM(CASE WHEN b.created_at >= s.sec AND b.created_at < s.sec + interval '1 second' THEN 1 ELSE 0 END), 0)::int AS ingress
+      COALESCE(c.n, 0) AS confirmed,
+      COALESCE(f.n, 0) AS failed,
+      COALESCE(i.n, 0) AS ingress
     FROM seconds s
-    LEFT JOIN bookings b ON b.created_at >= s.sec - interval '1 second' AND b.created_at < s.sec + interval '2 seconds'
-    GROUP BY s.sec
+    LEFT JOIN confirmed_per_sec c ON c.sec = s.sec
+    LEFT JOIN failed_per_sec   f ON f.sec = s.sec
+    LEFT JOIN ingress_per_sec  i ON i.sec = s.sec
     ORDER BY s.sec
   `;
 

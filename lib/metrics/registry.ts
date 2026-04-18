@@ -16,12 +16,22 @@ import {
   collectDefaultMetrics,
 } from 'prom-client';
 
+// `env` label separates local-dev metrics from production on the same Grafana
+// Cloud tenant. Precedence: explicit METRICS_ENV override > VERCEL_ENV
+// (auto-set by Vercel to 'production' | 'preview' | 'development') > 'local'.
+// Dashboard panels filter `{env="production"}` so local traffic never
+// pollutes demo views.
+const ENV_LABEL =
+  process.env.METRICS_ENV ?? process.env.VERCEL_ENV ?? 'local';
+
 export const registry = new Registry();
 registry.setDefaultLabels({
   service: 'trains-and-tracks',
-  env: process.env.VERCEL_ENV ?? 'local',
+  env: ENV_LABEL,
 });
 collectDefaultMetrics({ register: registry });
+
+export { ENV_LABEL };
 
 // --- Counters ---------------------------------------------------------------
 
