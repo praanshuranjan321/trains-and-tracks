@@ -66,12 +66,9 @@ export async function publishAllocateJob(args: AllocateJobPayload): Promise<{ me
   const bypass = process.env.QSTASH_DEV_BYPASS === '1' && !process.env.VERCEL;
 
   if (bypass) {
-    // In-process Flow Control: serialize workers per trainId (parallelism: 1,
-    // matching production QStash config via ADR-004). Without this, a 10K
-    // surge would fire 10K concurrent fetch()es on the same Node process,
-    // saturating the event loop and starving the ingress path. The tail-chain
-    // pattern keeps the book-response path O(1) while workers run FIFO.
-    enqueueLocalWorker(args, `${appUrl}/api/worker/allocate`);
+    // In-process direct dispatch — no HTTP round-trip, no event-loop contention.
+    // Per-train Promise chain mirrors QStash Flow Control parallelism:1.
+    enqueueLocalWorker(args);
     const messageId = `local_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
     return { messageId };
   }
