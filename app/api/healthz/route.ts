@@ -73,7 +73,14 @@ async function probeQstash(signal: AbortSignal): Promise<CheckResult> {
   }
 }
 
-export async function GET(_req: NextRequest): Promise<NextResponse> {
+function requestIdFrom(req: NextRequest): string {
+  const given = req.headers.get('x-request-id');
+  if (given && given.length <= 128) return given;
+  return `req_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+}
+
+export async function GET(req: NextRequest): Promise<NextResponse> {
+  const requestId = requestIdFrom(req);
   const redisCtl = AbortSignal.timeout(500);
   const pgCtl = AbortSignal.timeout(1000);
   const qsCtl = AbortSignal.timeout(1000);
@@ -103,7 +110,10 @@ export async function GET(_req: NextRequest): Promise<NextResponse> {
     },
     {
       status: status === 'unhealthy' ? 503 : 200,
-      headers: { 'Cache-Control': 'no-store' },
+      headers: {
+        'X-Request-ID': requestId,
+        'Cache-Control': 'no-store',
+      },
     },
   );
 }

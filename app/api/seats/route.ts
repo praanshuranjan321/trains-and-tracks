@@ -18,7 +18,14 @@ interface SeatRow {
   status: 'AVAILABLE' | 'RESERVED' | 'CONFIRMED';
 }
 
+function requestIdFrom(req: NextRequest): string {
+  const given = req.headers.get('x-request-id');
+  if (given && given.length <= 128) return given;
+  return `req_${crypto.randomUUID().replace(/-/g, '').slice(0, 16)}`;
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
+  const requestId = requestIdFrom(req);
   const trainId = new URL(req.url).searchParams.get('train_id') ?? '12951';
 
   let data: unknown[] | null = null;
@@ -31,8 +38,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     if (res.error) {
       return NextResponse.json(
-        { error: { code: 'upstream_failure', message: res.error.message } },
-        { status: 502 },
+        { error: { code: 'upstream_failure', message: res.error.message, request_id: requestId } },
+        { status: 502, headers: { 'X-Request-ID': requestId } },
       );
     }
     data = res.data;
@@ -47,9 +54,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
           error: {
             code: 'circuit_open',
             message: 'Downstream temporarily unavailable — retry in 30s',
+            request_id: requestId,
           },
         },
-        { status: 503, headers: { 'Retry-After': '30' } },
+        { status: 503, headers: { 'X-Request-ID': requestId, 'Retry-After': '30' } },
       );
     }
     throw e;
@@ -77,8 +85,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     },
     {
       status: 200,
-      // 1-second SWR absorbs polling from the seat grid.
-      headers: { 'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5' },
+      headers: {
+        'X-Request-ID': requestId,
+        // 1-second SWR absorbs polling from the seat grid.
+        'Cache-Control': 'public, s-maxage=1, stale-while-revalidate=5',
+      },
     },
   );
 }

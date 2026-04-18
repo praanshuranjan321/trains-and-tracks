@@ -9,6 +9,7 @@
 // Schedule tick on its own cadence.
 
 import type { NextRequest } from 'next/server';
+import { ulid } from 'ulid';
 
 import { verifySignatureAppRouter } from '@/infra/qstash/verifier';
 import { sweepExpiredHolds } from '@/lib/db/repositories/bookings';
@@ -20,14 +21,21 @@ import { scheduleMetricsPush } from '@/lib/metrics/pusher';
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-async function handler(_req: NextRequest): Promise<Response> {
+function requestIdOf(req: NextRequest): string {
+  const given = req.headers.get('x-request-id');
+  if (given && given.length <= 128) return given;
+  return `req_${ulid().toLowerCase()}`;
+}
+
+async function handler(req: NextRequest): Promise<Response> {
   scheduleMetricsPush();
+  const requestId = requestIdOf(req);
   try {
     const result = await pgPolicy.execute(() => sweepExpiredHolds());
     if (result.skipped) {
-      logger.info({ swept: 0, skipped: true }, 'sweeper_concurrent_skip');
+      logger.info({ request_id: requestId, swept: 0, skipped: true }, 'sweeper_concurrent_skip');
     } else {
-      logger.info({ swept: result.swept_count }, 'sweeper_run');
+      logger.info({ request_id: requestId, swept: result.swept_count }, 'sweeper_run');
     }
     record.counter('tg_sweeper_runs_total', {
       skipped: String(result.skipped),
@@ -35,19 +43,25 @@ async function handler(_req: NextRequest): Promise<Response> {
     if (result.swept_count > 0) {
       record.counter('tg_holds_expired_total', undefined);
     }
-    return Response.json({
-      ok: true,
-      swept: result.swept_count,
-      skipped: result.skipped,
-    });
+    return Response.json(
+      {
+        ok: true,
+        swept: result.swept_count,
+        skipped: result.skipped,
+      },
+      { headers: { 'X-Request-ID': requestId } },
+    );
   } catch (e: unknown) {
     logger.error(
-      { err: e instanceof Error ? e.message : String(e) },
+      { request_id: requestId, err: e instanceof Error ? e.message : String(e) },
       'sweeper_failed',
     );
     return new Response(
-      JSON.stringify({ error: { code: 'upstream_failure', message: 'sweeper failed' } }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
+      JSON.stringify({ error: { code: 'upstream_failure', message: 'sweeper failed', request_id: requestId } }),
+      {
+        status: 500,
+        headers: { 'Content-Type': 'application/json', 'X-Request-ID': requestId },
+      },
     );
   }
 }
