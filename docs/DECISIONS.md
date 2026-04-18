@@ -631,6 +631,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: catch BrokenCircuitError in the 3 public endpoints only (`/api/book`, `/api/seats`, `/api/insights/[metric]`); worker/sweeper/webhook deliberately excluded because their caller is QStash and they must return generic 5xx to trigger retry/DLQ, not a user-facing 503. Response body + Retry-After:30 per API_CONTRACT §3. Today no public path calls code wrapped in pgPolicy directly — the catch is defensively symmetrical for future wiring.
 - files: app/api/book/route.ts, app/api/seats/route.ts, app/api/insights/[metric]/route.ts
 
+## [2026-04-18 07:58 IST] 5028198: feat(api) add GET /api/trains per §5.4 (P4)
+- context: systematic audit D3-P4 — `/api/trains` listed in API_CONTRACT §4 endpoint catalog but no route file existed; public train list was unreachable
+- decision: Edge runtime with supabase-js PostgREST (HTTPS, no TCP deps); Cache-Control: public, max-age=60 for the effectively-static single-train hackathon scope; X-Request-ID per API_CONTRACT §12 invariant #2; no auth (consistent with /api/seats inventory posture)
+- files: app/api/trains/route.ts
+
 ---
 
 ## 6. Defense notes
