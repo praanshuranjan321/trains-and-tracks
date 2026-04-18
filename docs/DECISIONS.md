@@ -661,6 +661,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: (1) env-label separation on the shared Grafana Cloud tenant — METRICS_ENV > VERCEL_ENV > 'local' precedence via setDefaultLabels so every metric carries env without touching call sites; insights proxy substitutes {ENV} per-request with a regex-gated env selector + optional ?env= override. (2) live-stats time-series bug fix — replaced the single LEFT JOIN (filtered by created_at but summed over confirmed_at, dropping every row where confirm landed >2s after create — i.e. every row under surge) with three per-event CTEs keyed on the correct timestamp column each. (3) infra/grafana/dashboard.json — 8-panel dashboard with `$env` template variable for importable demo view. (4) hero image assets added under public/
 - files: app/api/admin/live-stats/route.ts, app/api/insights/[metric]/route.ts, lib/metrics/registry.ts, infra/grafana/dashboard.json, public/hero_image.png, public/reference_website.webp
 
+## [2026-04-18 08:59 IST] 1a51e39: fix(ops) replace Grafana iframe with prominent CTA (free-tier X-Frame-Options block)
+- context: after wiring NEXT_PUBLIC_GRAFANA_DASHBOARD_URL and redeploying, the /ops iframe still showed "refused to connect." curl of the public-dashboards URL confirmed Grafana sends `X-Frame-Options: deny`. The `allow_embedding` toggle (Administration → General → Security) is not exposed on Grafana Cloud free/trial tier — paid plan only
+- decision: Option B from the three-way triage — replace the iframe embed with a one-click CTA card that opens the dashboard in a new tab. High-contrast #00D084 panel matching the landing hero visual language; BarChart3 icon; copy names the six panel groups + the `$env` filter for judge-facing clarity. `target=_blank rel=noreferrer`. Preserves the "dashboard URL not set" fallback for local-dev. Zero new external-service dependency; no CSP-header fight. Option A (toggle allow_embedding) is blocked by tier; Option C (per-panel /d-solo embed URLs) costs more than it's worth for one hackathon demo
+- files: app/ops/page.tsx
+
 ---
 
 ## 6. Defense notes
