@@ -626,6 +626,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - trade-offs vs real path: no Flow Control serialization per train (concurrency = undici's), no retries, no DLQ. Fine for happy-path dev; not a surge substitute.
 - files: infra/qstash/publisher.ts
 
+## [2026-04-18 07:56 IST] 9a89370: fix(resilience) emit circuit_open 503 on breaker-trip for public endpoints (E8)
+- context: systematic audit D2-E8 — `circuit_open` declared in lib/errors/api-error.ts but never thrown by any handler; the public-facing promise of fail-CLOSED breaker behavior (FAILURE_MATRIX §3.3, README, API_CONTRACT §3) had no emission path
+- decision: catch BrokenCircuitError in the 3 public endpoints only (`/api/book`, `/api/seats`, `/api/insights/[metric]`); worker/sweeper/webhook deliberately excluded because their caller is QStash and they must return generic 5xx to trigger retry/DLQ, not a user-facing 503. Response body + Retry-After:30 per API_CONTRACT §3. Today no public path calls code wrapped in pgPolicy directly — the catch is defensively symmetrical for future wiring.
+- files: app/api/book/route.ts, app/api/seats/route.ts, app/api/insights/[metric]/route.ts
+
 ---
 
 ## 6. Defense notes
