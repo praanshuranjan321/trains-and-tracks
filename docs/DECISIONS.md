@@ -274,10 +274,28 @@ RETURNING id;
 - **Reject the accuracy/ammo trade-off** — counterproductive.
 
 **Consequences:**
-- Admin protection at 100% accuracy (worth the O(log N) cost on 30-req/min path)
+- Admin protection at 100% accuracy (worth the O(log N) cost)
 - Concrete Rule 4.1 ammunition: "we built our own limiter where it matters"
 - Defense line: "we ship two rate limiters — one from Upstash for perf, one of ours for correctness"
 - Escape hatch: if custom Lua misbehaves, temporarily route admin through `@upstash/ratelimit` too
+
+**Refinement — read/write bucket split (added post-deploy):** a single shared
+admin bucket got starved by the `/ops` page's own read polling
+(`live-stats` @ 1.5 s + `recent-bookings` @ 2 s = 70 req/min combined) before
+any operator mutation could land — observed symptom: Simulate Surge returned
+429 on first click after /ops had been open for ~15 seconds. Fix: two
+buckets per admin token, both still via the custom Lua log:
+
+| Bucket | Key | Limit | Consumers |
+|---|---|---|---|
+| WRITE | `rl:admin:w:<fp>` | 30 / 60 s | `/api/admin/reset`, `/api/admin/kill-worker`, `/api/admin/dlq/[id]/retry`, `/api/admin/dlq` (list), `/api/simulate` |
+| READ | `rl:admin:r:<fp>` | 300 / 60 s | `/api/admin/live-stats`, `/api/admin/recent-bookings` |
+
+Read limit is 5× the observed poll load so a second operator tab can join
+without starvation. Write limit unchanged — the strict 30/min story for
+judge-facing Rule 4.1 defense stays intact. `requireAdmin(req, { kind:
+'read' })` is the opt-in; default remains 'write' so new admin endpoints
+fail closed into the strict bucket unless explicitly marked safe.
 
 ---
 

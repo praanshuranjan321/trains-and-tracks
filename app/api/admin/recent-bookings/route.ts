@@ -10,7 +10,8 @@ import { sql } from '@/lib/db/pg';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireAdmin(req);
+  // Read bucket — polled every 2s by /ops. See ADR-011 Consequences.
+  const auth = await requireAdmin(req, { kind: 'read' });
   if (!auth.ok) {
     return NextResponse.json(
       { error: { code: auth.errorCode, message: 'auth' } },

@@ -15,7 +15,10 @@ import { sql } from '@/lib/db/pg';
 export const runtime = 'nodejs';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const auth = await requireAdmin(req);
+  // Read bucket — polled every 1.5s by /ops. Must not share the strict
+  // write bucket or it starves Simulate/Reset/Kill mutations. See
+  // ADR-011 Consequences for the read/write split rationale.
+  const auth = await requireAdmin(req, { kind: 'read' });
   if (!auth.ok) {
     return NextResponse.json(
       { error: { code: auth.errorCode, message: 'auth' } },

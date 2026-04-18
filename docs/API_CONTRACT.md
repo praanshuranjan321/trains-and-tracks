@@ -707,8 +707,14 @@ export const ResetSchema = z.object({
 | `POST /api/book` | sliding-window counter | 100 / 10s | per user-id (IP or fingerprint) | `RateLimit: "sliding";r=0;t=8` |
 | `GET /api/book/[jobId]` | — | (polling allowed) | — | — |
 | `GET /api/seats` | sliding-window counter | 60 / 60s | per IP | — |
-| `POST /api/simulate` | custom Lua log | 2 / min | per admin token | — |
-| `POST /api/admin/*` | custom Lua log | 30 / min | per admin token | Rule 4.1 ammo |
+| `POST /api/simulate` + admin **mutations** (reset, kill-worker, dlq retry) | custom Lua log | 30 / min | per admin token (WRITE bucket) | Rule 4.1 ammo |
+| Admin **reads / polling** (`/api/admin/live-stats`, `/api/admin/recent-bookings`) | custom Lua log | 300 / min | per admin token (READ bucket) | — |
+
+**Why two buckets:** a single shared admin bucket was starved by the `/ops`
+page's own polling (live-stats @ 1.5 s + recent-bookings @ 2 s = 70 req/min)
+before any operator mutation could land. Read/write separation keeps the
+mutation limit strict (the Rule 4.1 demo-safety story) while giving reads
+5× headroom over the observed poll load. See ADR-011 Consequences.
 
 **Backpressure (503 + Retry-After):**
 
