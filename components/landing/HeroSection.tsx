@@ -7,7 +7,6 @@
 // block.
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { useRef } from 'react';
 import { ArrowDown, ArrowRight } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -75,19 +74,26 @@ export function HeroSection() {
       ref={sectionRef}
       className="relative isolate flex min-h-screen flex-col overflow-hidden bg-ink text-cloud-ivory"
     >
-      {/* Full-bleed illustration — GSAP-animated wrapper. No tonal gradient
-          overlays: the flat illustration is the hero. */}
+      {/* Full-bleed video — GSAP-animated wrapper. autoPlay + muted + playsInline
+          so mobile Safari honors it inline without a tap; `loop` for continuous
+          ambient motion; `preload="metadata"` keeps the initial payload small
+          and lets the browser stream the rest. poster falls back to the flat
+          illustration so the first paint is not a black rectangle while the
+          video buffers. */}
       <div
         ref={imageWrapRef}
         className="absolute inset-0 -z-20 h-full w-full will-change-transform"
       >
-        <Image
-          src="/hero_image.png"
-          alt="Illustration — red passenger train crossing a stone-arch viaduct over a mountain lake, snow-capped peaks and cloud bank in the distance. Flat-colour style referencing Swiss SBB editorial."
-          fill
-          priority
-          sizes="100vw"
-          className="select-none object-cover object-[65%_50%]"
+        <video
+          src="/hero_video.mp4"
+          poster="/hero_image.png"
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          aria-label="Ambient illustration — red passenger train crossing a stone-arch viaduct over a mountain lake, snow-capped peaks and cloud bank in the distance. Flat-colour style referencing Swiss SBB editorial."
+          className="h-full w-full select-none object-cover object-[65%_50%]"
         />
       </div>
 
