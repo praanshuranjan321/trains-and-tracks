@@ -106,8 +106,6 @@ export default function OpsPage() {
   const [surgeWindow, setSurgeWindow] = useState<number>(10);
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
   const [dlq, setDlq] = useState<DlqJob[]>([]);
-  // Scroll target for "watch the chart light up" on surge click.
-  const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem(SS_KEY) : null;
@@ -249,14 +247,12 @@ export default function OpsPage() {
     [adminSecret],
   );
 
-  const simulate = () => {
-    chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return callAdmin(
+  const simulate = () =>
+    callAdmin(
       '/api/simulate',
       { trainId: '12951', requestCount: surgeN, windowSeconds: surgeWindow },
       `Simulate surge (${surgeN.toLocaleString()} req / ${surgeWindow} s)`,
     );
-  };
   const kill = () =>
     callAdmin('/api/admin/kill-worker', { failNextN: 3, failureMode: '500' }, 'Kill next 3 worker runs');
   const reset = () =>
@@ -327,11 +323,8 @@ export default function OpsPage() {
 
         {/* Hero chart — confirmations/sec last 60s. Flex-1 so it fills the
             residual vertical space between the stat grid above and the surge
-            controls below; auto-scroll target on SIMULATE SURGE click. */}
-        <Card
-          ref={chartRef}
-          className="flex min-h-[240px] flex-1 flex-col border-zinc-800/60 bg-zinc-950/40"
-        >
+            controls below. */}
+        <Card className="flex min-h-[240px] flex-1 flex-col border-zinc-800/60 bg-zinc-950/40">
           <CardHeader className="shrink-0 pb-3">
             <CardTitle className="flex items-baseline justify-between font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
               <span>confirmations / sec · last 60s</span>
