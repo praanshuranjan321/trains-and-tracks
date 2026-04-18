@@ -149,7 +149,9 @@ export async function runWorkerJob(
   }
 
   if (!confirmed) {
-    // hold expired mid-payment
+    // Hold expired mid-payment. Canonical body-level `failureReason` is
+    // `hold_expired` per API_CONTRACT §3; the "during payment" sub-variant
+    // lives in logs only so sweeper-path + worker-path responses match.
     await refund(paymentId);
     await commitIdempotencyResponse({
       key: job.idempotencyKey,
@@ -157,7 +159,7 @@ export async function runWorkerJob(
       body: {
         jobId: job.bookingId,
         status: 'EXPIRED',
-        failureReason: 'hold_expired_during_payment',
+        failureReason: 'hold_expired',
         trainId: job.trainId,
       },
     });

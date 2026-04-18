@@ -44,7 +44,6 @@ export async function releaseReservation(args: {
     | 'sold_out'
     | 'payment_failed'
     | 'payment_timeout'
-    | 'hold_expired_during_payment'
     | 'worker_error';
 }): Promise<number> {
   return pgPolicy.execute(() => rawReleaseHold(args));

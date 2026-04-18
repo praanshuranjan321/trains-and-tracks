@@ -164,7 +164,7 @@ The five failure modes most likely to come up in judge Q&A. Full flow for each.
    Zero rows match (seat already AVAILABLE; booking already EXPIRED).
 6. `IF NOT FOUND THEN RETURN;` — function exits early.
 7. Worker calls `paymentService.refund(payment_id)` — mock returns success.
-8. Worker writes `response_body` with `status: EXPIRED, failure_reason: hold_expired_during_payment`.
+8. Worker writes `response_body` with `status: EXPIRED, failure_reason: hold_expired` (canonical code per API_CONTRACT §3; the worker log line still reads `hold_expired_during_payment` so operators can distinguish the race variant from the pure sweeper path).
 
 **Final state:** booking EXPIRED, payment refunded, seat AVAILABLE. **No double-booking.**
 

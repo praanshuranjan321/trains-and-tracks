@@ -234,12 +234,16 @@ async function handler(req: NextRequest): Promise<Response> {
 
   if (!confirmed) {
     // Hold expired mid-payment (sweeper won the race). Refund + mark EXPIRED.
+    // `failureReason` is the canonical body-level `hold_expired` code per
+    // API_CONTRACT §3. We log the sub-variant ("during payment") to
+    // distinguish from the pure sweeper path, but the shipped wire code is
+    // always `hold_expired` so downstream consumers can match a single value.
     cLog.warn('hold_expired_during_payment');
     await refund(paymentId);
     const body = {
       jobId: job.bookingId,
       status: 'EXPIRED',
-      failureReason: 'hold_expired_during_payment',
+      failureReason: 'hold_expired',
       trainId: job.trainId,
     };
     await commitIdempotencyResponse({
