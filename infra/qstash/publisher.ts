@@ -19,42 +19,27 @@ export const qstash = new Client({
 // Tail-chain per Flow Control key. Each trainId gets its own Promise chain so
 // workers for the same train run serially (parallelism: 1), while different
 // trains are independent. This mirrors QStash Flow Control.
+//
+// IMPORTANT: we call runWorkerJob() directly — NOT `fetch(workerUrl)` — because
+// same-process HTTP round-trips saturate the single Node event loop under any
+// significant ingress volume (observed: /api/book taking 100+s during a 1000
+// surge because it competed with inbound worker fetches). Direct function call
+// keeps the worker logic off the HTTP path entirely.
 const LOCAL_QUEUES = new Map<string, Promise<unknown>>();
 
-function enqueueLocalWorker(args: AllocateJobPayload, workerUrl: string): void {
+function enqueueLocalWorker(args: AllocateJobPayload): void {
   const key = `train.${args.trainId}`;
   const tail = LOCAL_QUEUES.get(key) ?? Promise.resolve();
   const next = tail
-    .then(() => dispatchLocalWorker(args, workerUrl))
+    .then(async () => {
+      const { runWorkerJob } = await import('@/lib/allocation/run-worker-job');
+      return runWorkerJob(args);
+    })
     .catch((e) => {
       // eslint-disable-next-line no-console
       console.warn('[qstash-bypass] local worker chain:', e);
     });
   LOCAL_QUEUES.set(key, next);
-}
-
-async function dispatchLocalWorker(
-  args: AllocateJobPayload,
-  workerUrl: string,
-): Promise<void> {
-  try {
-    const res = await fetch(workerUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(args),
-    });
-    if (!res.ok) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        `[qstash-bypass] worker ${res.status} for booking ${args.bookingId}`,
-      );
-    }
-    // Drain body so the socket isn't leaked in warm Node.
-    await res.text().catch(() => {});
-  } catch (e) {
-    // eslint-disable-next-line no-console
-    console.warn('[qstash-bypass] worker dispatch error:', e);
-  }
 }
 
 export interface AllocateJobPayload {
