@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BarChart3, CheckCircle2, Clock, Play, RefreshCw, Skull, Trash2, XCircle } from 'lucide-react';
+import { CheckCircle2, Clock, Play, RefreshCw, Skull, Trash2, XCircle } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -222,19 +222,6 @@ export default function OpsPage() {
   const reset = () =>
     callAdmin('/api/admin/reset', { confirm: 'reset', trainId: '12951' }, 'Reset demo state');
   const refresh = () => window.location.reload();
-
-  // Last-sample age derived from the insights proxy's most recent series point.
-  // Not a literal "waitUntil fired at T" signal (pusher.ts doesn't expose one),
-  // but a read-only end-to-end proxy: if Mimir has a recent sample, the full
-  // chain — registry → pusher → remote_write → Mimir → /api/insights — is alive.
-  const lastSampleAgo = (() => {
-    if (ingressPerSec.length === 0) return 'awaiting first sample';
-    const latestT = ingressPerSec[ingressPerSec.length - 1]!.t;
-    const age = Math.max(0, Math.floor(Date.now() / 1000) - latestT);
-    if (age < 5) return 'just now';
-    if (age < 120) return `${age}s ago`;
-    return `${Math.floor(age / 60)}m ago`;
-  })();
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -546,40 +533,6 @@ export default function OpsPage() {
           </CardContent>
         </Card>
 
-        {/* Grafana iframe slot */}
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="flex items-baseline justify-between font-mono text-sm text-muted-foreground">
-              <span>METRICS PIPELINE</span>
-              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                push via waitUntil
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* Grafana Shared-Dashboard iframe was removed: public dashboards
-                ship `X-Frame-Options: deny` and `$env` template variables
-                aren't honored on the public-share route, so the embed was
-                both unusable and inaccurate. The pipeline itself is unchanged
-                — prom-client registry → prometheus-remote-write@0.5.1 inside
-                Next.js `after()`/waitUntil → Grafana Cloud Mimir — and every
-                Recharts panel above continues to read from the same Mimir
-                tenant via /api/insights/[metric]. */}
-            <div className="flex items-center gap-4 rounded-md border border-zinc-800/60 bg-zinc-900/40 p-4">
-              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#00D084]/15 text-[#00D084]">
-                <BarChart3 className="h-5 w-5" />
-              </span>
-              <div className="flex-1">
-                <div className="font-mono text-xs uppercase tracking-widest text-foreground">
-                  Grafana Cloud Mimir · env=production
-                </div>
-                <div className="mt-1 font-mono text-[11px] text-muted-foreground">
-                  prometheus-remote-write · last sample {lastSampleAgo}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </section>
     </main>
   );
