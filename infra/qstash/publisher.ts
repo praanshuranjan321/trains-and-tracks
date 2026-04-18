@@ -81,23 +81,30 @@ export async function publishAllocateJob(args: AllocateJobPayload): Promise<{ me
       // [A-Za-z0-9._-] — the ':' separator in ADR-004 is rejected.
       // Semantics unchanged; `train.` namespaces the same way.
       key: `train.${args.trainId}`,
-      // parallelism raised 1 → 10 for demo-relevant per-train throughput.
-      // Correctness is parallelism-independent:
+      // parallelism: 50 — tuned for the demo-day 100-req burst. At 50
+      // concurrent workers, a 100-req surge drains in two QStash batches
+      // (~2-3 s total). Correctness is parallelism-independent, guaranteed
+      // by three already-in-place mechanisms:
       //   - FOR UPDATE SKIP LOCKED (migration 100:45) — no two workers
       //     ever grab the same AVAILABLE seat.
       //   - allocate_seat re-delivery guard (migration 100:17-25) —
       //     survives QStash double-delivery: returns existing RESERVED
       //     hold instead of allocating a second seat.
       //   - bookings.idempotency_key UNIQUE (migration 060 / ADR-024) —
-      //     third-layer backstop if the first two somehow race.
-      // Tradeoff: strict per-train FIFO relaxed — booking #3 might confirm
-      // before #2 when both are in flight. Correctness invariants unchanged.
-      // Pool safety: 10 concurrent workers × Supavisor 1-slot-per-worker =
-      // 10/200 pool slots. Comfortable headroom vs saturation cliff.
-      // Ceiling derivation: Little's Law + pool size + QStash rate ceiling
-      // caps effective parallelism around 50-100 for this stack — past that,
-      // breaker trips, throughput collapses. See DECISIONS.md ADR-004 §5.
-      parallelism: 10,
+      //     third-layer backstop.
+      // Tradeoff: strict per-train FIFO relaxed — bookings within a
+      // 50-slot window may confirm out of arrival order. Not a correctness
+      // issue; real IRCTC doesn't guarantee FIFO either.
+      // Pool safety: 50 × Supavisor-1-slot-per-worker = 50/200 pooler
+      // slots (25% utilization). Well under the saturation cliff at
+      // ~150-180 where Cockatiel timeouts start firing.
+      // Ceiling for this stack is ~50-100 before the breaker starts
+      // tripping at surge-scale (Little's Law: concurrent = arrival ×
+      // service_time; service_time ≈1s ⇒ pool caps at 200). Past 100,
+      // scale by adding more trains — each Flow Control key runs an
+      // independent parallelism-bounded lane. At IRCTC scale: 500 trains
+      // × 50 parallel = 25,000 concurrent across the fleet.
+      parallelism: 50,
       rate: 200,
       period: '1s',
     },
