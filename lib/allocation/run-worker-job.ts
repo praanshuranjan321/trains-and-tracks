@@ -10,7 +10,8 @@ import { getBookingById } from '@/lib/db/repositories/bookings';
 import { allocateSeatWithPolicy } from '@/lib/allocation/allocate-seat';
 import {
   confirmHold,
-  releaseReservation,
+  releaseHoldForRetry,
+  releaseHoldTerminally,
 } from '@/lib/allocation/hold-state-machine';
 import { charge, refund, PaymentError } from '@/lib/payment/mock-service';
 import { paymentPolicy } from '@/lib/resilience/payment-policy';
@@ -83,7 +84,8 @@ export async function runWorkerJob(
   }
 
   if (!allocated) {
-    await releaseReservation({ bookingId: job.bookingId, reason: 'sold_out' });
+    // Terminal — sold_out is permanent.
+    await releaseHoldTerminally({ bookingId: job.bookingId, reason: 'sold_out' });
     await commitIdempotencyResponse({
       key: job.idempotencyKey,
       status: 200,
@@ -109,13 +111,14 @@ export async function runWorkerJob(
     record.counter(M.paymentsTotal, { status: 'succeeded', replayed: String(r.replayed) });
   } catch (e) {
     if (e instanceof PaymentError) {
-      await releaseReservation({
-        bookingId: job.bookingId,
-        reason: e.code === 'payment_declined' ? 'payment_failed' : 'payment_timeout',
-      });
       record.counter(M.paymentsTotal, { status: 'failed', replayed: 'false' });
       const permanent = e.code === 'payment_declined' || retried >= 3;
       if (permanent) {
+        // TERMINAL: seat + booking → cleaned up in one call.
+        await releaseHoldTerminally({
+          bookingId: job.bookingId,
+          reason: e.code === 'payment_declined' ? 'payment_failed' : 'payment_timeout',
+        });
         await commitIdempotencyResponse({
           key: job.idempotencyKey,
           status: 200,
@@ -128,9 +131,33 @@ export async function runWorkerJob(
         });
         record.counter(M.dlqTotal, { reason: e.code });
       } else {
+        // RETRYABLE: release seat only — booking stays PENDING so retries land.
+        await releaseHoldForRetry(job.bookingId);
         record.counter(M.retriesTotal, { stage: 'payment' });
       }
       return { kind: 'payment_failed', code: e.code, permanent };
+    }
+    // Non-PaymentError (breaker/timeout): release retryably so the seat
+    // isn't stranded until the sweeper expires it 5 min later (O1 fix).
+    // On the last attempt, go terminal so the booking doesn't stay PENDING
+    // after QStash gives up.
+    const isLastAttempt = retried >= 3;
+    if (isLastAttempt) {
+      await releaseHoldTerminally({ bookingId: job.bookingId, reason: 'worker_error' });
+      await commitIdempotencyResponse({
+        key: job.idempotencyKey,
+        status: 200,
+        body: {
+          jobId: job.bookingId,
+          status: 'FAILED',
+          failureReason: 'worker_error',
+          trainId: job.trainId,
+        },
+      });
+      record.counter(M.dlqTotal, { reason: 'worker_error' });
+    } else {
+      await releaseHoldForRetry(job.bookingId);
+      record.counter(M.retriesTotal, { stage: 'payment' });
     }
     return { kind: 'transient', reason: e instanceof Error ? e.message : String(e) };
   }

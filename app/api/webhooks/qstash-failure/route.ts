@@ -17,6 +17,8 @@ import type { NextRequest } from 'next/server';
 
 import { verifySignatureAppRouter } from '@/infra/qstash/verifier';
 import { insertDlqJob } from '@/lib/db/repositories/dlq';
+import { releaseHoldTerminally } from '@/lib/allocation/hold-state-machine';
+import { commitIdempotencyResponse } from '@/lib/idempotency/postgres-authority';
 import { logger } from '@/lib/logging/logger';
 import { record } from '@/lib/metrics/registry';
 import { M } from '@/lib/metrics/names';
@@ -93,6 +95,51 @@ async function handler(req: NextRequest): Promise<Response> {
       'dlq_webhook_recorded',
     );
     record.counter(M.dlqTotal, { reason: errorReason });
+
+    // Safety-net cleanup: if the worker returned 489 it already marked the
+    // booking FAILED. But if QStash exhausted retries against 500 responses,
+    // the worker never went terminal — the booking is still PENDING and the
+    // seat may still be held. release_hold_terminal is idempotent, so calling
+    // it on both paths is safe and closes the tombstone gap.
+    const jobPayload = payload as
+      | { bookingId?: string; idempotencyKey?: string; trainId?: string; passengerName?: string }
+      | null;
+    if (jobPayload?.bookingId && jobPayload.idempotencyKey) {
+      try {
+        await releaseHoldTerminally({
+          bookingId: jobPayload.bookingId,
+          reason:
+            errorReason === 'retries_exhausted_http_489'
+              ? 'payment_failed'
+              : 'retries_exhausted',
+        });
+        await commitIdempotencyResponse({
+          key: jobPayload.idempotencyKey,
+          status: 200,
+          body: {
+            jobId: jobPayload.bookingId,
+            status: 'FAILED',
+            failureReason:
+              errorReason === 'retries_exhausted_http_489'
+                ? 'payment_failed'
+                : 'retries_exhausted',
+            trainId: jobPayload.trainId ?? null,
+          },
+        });
+      } catch (cleanupErr: unknown) {
+        // Don't fail the webhook on cleanup error — DLQ row is still useful.
+        logger.warn(
+          {
+            err: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+            booking_id: jobPayload.bookingId,
+          },
+          'dlq_webhook_cleanup_failed',
+        );
+      }
+    } else {
+      logger.warn({ sourceMessageId }, 'dlq_webhook_missing_booking_payload');
+    }
+
     return Response.json({ ok: true, dlqJobId: inserted?.id ?? null });
   } catch (e: unknown) {
     logger.error(

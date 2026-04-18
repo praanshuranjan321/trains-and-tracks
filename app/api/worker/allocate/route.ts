@@ -26,7 +26,11 @@ import { verifySignatureAppRouter } from '@/infra/qstash/verifier';
 import { AllocateJobSchema } from '@/lib/validation/worker';
 import { getBookingById } from '@/lib/db/repositories/bookings';
 import { allocateSeatWithPolicy } from '@/lib/allocation/allocate-seat';
-import { confirmHold, releaseReservation } from '@/lib/allocation/hold-state-machine';
+import {
+  confirmHold,
+  releaseHoldForRetry,
+  releaseHoldTerminally,
+} from '@/lib/allocation/hold-state-machine';
 import { charge, refund, PaymentError } from '@/lib/payment/mock-service';
 import { paymentPolicy } from '@/lib/resilience/payment-policy';
 import { commitIdempotencyResponse } from '@/lib/idempotency/postgres-authority';
@@ -135,10 +139,11 @@ async function handler(req: NextRequest): Promise<Response> {
     return transientError('upstream_failure', 'allocation failed; QStash will retry');
   }
 
-  // Step 5: sold out path — no seat, mark FAILED, cache response
+  // Step 5: sold out path — no seat, mark FAILED, cache response.
+  // Terminal release: sold_out is permanent — no retry can produce a seat.
   if (!allocated) {
     cLog.info('sold_out');
-    await releaseReservation({ bookingId: job.bookingId, reason: 'sold_out' });
+    await releaseHoldTerminally({ bookingId: job.bookingId, reason: 'sold_out' });
     const body = {
       jobId: job.bookingId,
       status: 'FAILED',
@@ -170,18 +175,20 @@ async function handler(req: NextRequest): Promise<Response> {
   } catch (e) {
     if (e instanceof PaymentError) {
       cLog.warn({ code: e.code, retried }, 'payment_failed');
-      await releaseReservation({
-        bookingId: job.bookingId,
-        reason: e.code === 'payment_declined' ? 'payment_failed' : 'payment_timeout',
-      });
       record.counter(M.paymentsTotal, { status: 'failed', replayed: 'false' });
 
       // QStash retries:3 → Upstash-Retried ∈ {0..3}. Retried=3 is the final
-      // attempt. If the gateway declined (vs timed out), we also give up
-      // immediately — repeat attempts won't change the decision.
+      // attempt. payment_declined is a permanent decision — repeat attempts
+      // won't change it.
       const isLastAttempt = retried >= 3;
       const isPermanent = e.code === 'payment_declined';
-      if (isLastAttempt || isPermanent) {
+
+      if (isPermanent || isLastAttempt) {
+        // TERMINAL: release seat + mark booking FAILED in one call.
+        await releaseHoldTerminally({
+          bookingId: job.bookingId,
+          reason: e.code === 'payment_declined' ? 'payment_failed' : 'payment_timeout',
+        });
         const body = {
           jobId: job.bookingId,
           status: 'FAILED',
@@ -201,15 +208,47 @@ async function handler(req: NextRequest): Promise<Response> {
         );
       }
 
+      // RETRYABLE: release the seat so the next attempt is clean, but leave
+      // booking.status = PENDING so the `booking.status !== 'PENDING'` guard
+      // at step 3 of the next delivery doesn't short-circuit. This was the
+      // O4 bug — old releaseReservation stamped FAILED unconditionally and
+      // silently burned the QStash retry budget.
+      await releaseHoldForRetry(job.bookingId);
       record.counter(M.retriesTotal, { stage: 'payment' });
       return transientError('upstream_failure', `mock payment ${e.code} — retry`);
     }
 
-    // Unexpected non-PaymentError (e.g. Cockatiel breaker open)
+    // Unexpected non-PaymentError (e.g. Cockatiel breaker open, timeout).
+    // O1 fix: previously this path returned 500 without releasing the seat,
+    // leaving it RESERVED until the 60s sweeper expired the hold 5 min later
+    // (observed as the "25 EXPIRED" anomaly). Now we release retryably so
+    // QStash can redeliver cleanly, or terminally on the last attempt.
     cLog.error(
-      { err: e instanceof Error ? e.message : String(e) },
+      { err: e instanceof Error ? e.message : String(e), retried },
       'payment_unexpected_error',
     );
+    const isLastAttempt = retried >= 3;
+    if (isLastAttempt) {
+      await releaseHoldTerminally({
+        bookingId: job.bookingId,
+        reason: 'worker_error',
+      });
+      const body = {
+        jobId: job.bookingId,
+        status: 'FAILED',
+        failureReason: 'worker_error',
+        trainId: job.trainId,
+      };
+      await commitIdempotencyResponse({
+        key: job.idempotencyKey,
+        status: 200,
+        body,
+      });
+      record.counter(M.dlqTotal, { reason: 'worker_error' });
+      return nonRetryable('upstream_failure', 'payment policy error — retries exhausted');
+    }
+    await releaseHoldForRetry(job.bookingId);
+    record.counter(M.retriesTotal, { stage: 'payment' });
     return transientError('upstream_failure', 'payment policy error — retry');
   }
 

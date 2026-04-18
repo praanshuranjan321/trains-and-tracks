@@ -19,6 +19,8 @@
 import {
   confirmBooking as rawConfirmBooking,
   releaseHold as rawReleaseHold,
+  releaseHoldRetryable as rawReleaseHoldRetryable,
+  releaseHoldTerminal as rawReleaseHoldTerminal,
 } from '@/lib/db/repositories/bookings';
 import { pgPolicy } from '@/lib/resilience/pg-policy';
 
@@ -35,8 +37,9 @@ export async function confirmHold(args: {
 }
 
 /**
+ * @deprecated Use {@link releaseHoldForRetry} or {@link releaseHoldTerminally}.
  * Rollback: any RESERVED seat for this booking → AVAILABLE, booking → FAILED.
- * Returns the number of seats freed (0 if no hold ever existed).
+ * Kept for backward compat; no caller after 20260418.
  */
 export async function releaseReservation(args: {
   bookingId: string;
@@ -47,4 +50,31 @@ export async function releaseReservation(args: {
     | 'worker_error';
 }): Promise<number> {
   return pgPolicy.execute(() => rawReleaseHold(args));
+}
+
+/**
+ * Retryable rollback: seat → AVAILABLE, booking STAYS PENDING.
+ * Call from the transient-error branch of the worker so QStash's next
+ * delivery can reprocess. Returns the number of seats freed (0 or 1).
+ */
+export async function releaseHoldForRetry(bookingId: string): Promise<number> {
+  return pgPolicy.execute(() => rawReleaseHoldRetryable(bookingId));
+}
+
+/**
+ * Terminal rollback: seat → AVAILABLE, booking → FAILED.
+ * Idempotent. Call from permanent-error branches: payment_declined,
+ * retries_exhausted, sold_out.
+ */
+export async function releaseHoldTerminally(args: {
+  bookingId: string;
+  reason:
+    | 'sold_out'
+    | 'payment_failed'
+    | 'payment_timeout'
+    | 'worker_error'
+    | 'retries_exhausted'
+    | 'retries_exhausted_http_489';
+}): Promise<number> {
+  return pgPolicy.execute(() => rawReleaseHoldTerminal(args));
 }
