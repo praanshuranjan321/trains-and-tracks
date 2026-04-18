@@ -651,6 +651,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: first entry under tests/invariants/. Runs the canonical DATA_MODEL §10 query `SELECT seat_id, COUNT(*) FROM bookings WHERE status='CONFIRMED' GROUP BY seat_id HAVING COUNT(*)>1`. Exits 0 on zero rows, 1 on any row. Safety gate: refuses local Docker URL (127.0.0.1) so the test can only prove the deployed claim. Masks password in the echoed URL. Runner: `pnpm test:invariant:i1`
 - files: tests/invariants/no-duplicate-seats.ts, package.json
 
+## [2026-04-18 08:21 IST] afda5ad: test(invariant) I2 count reconciliation (DB-only)
+- context: systematic audit D6-I2 BLOCKER — no-lost-intent invariant had no automated assertion. Second of the two product-defining correctness claims (I1 landed in 78a0890)
+- decision: DB-only formulation — rate-limited rejects never create bookings rows, so the counted universe is the bookings table alone: `total == COUNT(PENDING)+COUNT(RESERVED)+COUNT(CONFIRMED)+COUNT(FAILED)+COUNT(EXPIRED)`. Any mismatch or unknown status fails exit 1. DLQ depth reported as operator signal only — already-FAILED bookings with a dlq_jobs row are not a loss. Full ingress-side invariant (ingress == confirmed+failed+expired+dlq+rate_limited) requires metric counters; documented as out of scope for the DB-only variant. Same safety gate as I1
+- files: tests/invariants/no-lost-intent.ts, package.json
+
 ---
 
 ## 6. Defense notes
