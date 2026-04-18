@@ -636,6 +636,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: Edge runtime with supabase-js PostgREST (HTTPS, no TCP deps); Cache-Control: public, max-age=60 for the effectively-static single-train hackathon scope; X-Request-ID per API_CONTRACT §12 invariant #2; no auth (consistent with /api/seats inventory posture)
 - files: app/api/trains/route.ts
 
+## [2026-04-18 08:00 IST] 5085674: fix(errors) unify hold_expired code across worker + docs (E15)
+- context: systematic audit D2-E15 — API_CONTRACT §3 declares `hold_expired` as the canonical body-level code, but worker/run-worker-job shipped `hold_expired_during_payment`. Clients matching on the canonical name never hit; UI had accrued defensive double-case handling as a workaround
+- decision: emit `hold_expired` in response body from both worker paths; keep the `hold_expired_during_payment` log label so operators can still distinguish the race variant from pure sweeper path; drop the dead `hold_expired_during_payment` literal from `releaseReservation`'s reason union; update FAILURE_MATRIX §3.2 step 8; leave the UI friendlyReason case handling both (stale idempotency_keys rows from pre-deploy)
+- files: app/api/worker/allocate/route.ts, lib/allocation/run-worker-job.ts, lib/allocation/hold-state-machine.ts, docs/FAILURE_MATRIX.md
+
 ---
 
 ## 6. Defense notes
