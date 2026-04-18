@@ -66,9 +66,7 @@ export default function HomePage() {
           <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 font-mono text-[10px] uppercase tracking-[0.22em] text-cloud-ivory/55 sm:text-[11px]">
             <div className="flex items-center gap-3">
               <span aria-hidden className="inline-flex h-1.5 w-1.5 rounded-full bg-train-red" />
-              <span>
-                Trains <span className="text-cloud-ivory/25">&amp;</span> Tracks
-              </span>
+              <span translate="no">Trains &amp; Tracks</span>
               <span aria-hidden className="hidden text-cloud-ivory/20 sm:inline">
                 /
               </span>
@@ -94,7 +92,7 @@ export default function HomePage() {
             </div>
 
             <h1
-              className="mt-6 font-serif font-medium uppercase text-cloud-ivory"
+              className="mt-6 font-serif font-medium uppercase text-balance text-cloud-ivory"
               style={{
                 fontSize: 'clamp(3rem, 8vw, 8rem)',
                 lineHeight: 0.9,
@@ -126,11 +124,14 @@ export default function HomePage() {
                 className={buttonVariants({
                   size: 'lg',
                   className:
-                    'group h-12 gap-2 rounded-none bg-train-red px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory transition-all duration-200 hover:bg-train-red-dark hover:text-paper',
+                    'group h-12 gap-2 rounded-none bg-train-red px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory transition-[background-color,color,box-shadow] duration-200 hover:bg-train-red-dark hover:text-paper focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cloud-ivory focus-visible:ring-offset-2 focus-visible:ring-offset-ink motion-reduce:transition-none',
                 })}
               >
-                Try booking
-                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+                Try Booking
+                <ArrowRight
+                  aria-hidden
+                  className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
+                />
               </Link>
               <Link
                 href="/ops"
@@ -138,10 +139,10 @@ export default function HomePage() {
                   size: 'lg',
                   variant: 'outline',
                   className:
-                    'h-12 gap-2 rounded-none border-cloud-ivory/40 bg-transparent px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory hover:border-cloud-ivory hover:bg-cloud-ivory/5 hover:text-cloud-ivory',
+                    'h-12 gap-2 rounded-none border-cloud-ivory/40 bg-transparent px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory transition-[background-color,border-color,color] duration-200 hover:border-cloud-ivory hover:bg-cloud-ivory/5 hover:text-cloud-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cloud-ivory focus-visible:ring-offset-2 focus-visible:ring-offset-ink motion-reduce:transition-none',
                 })}
               >
-                See it running
+                See It Running
               </Link>
             </div>
           </div>
@@ -160,7 +161,7 @@ export default function HomePage() {
               />
               {/* The plate. Hard offset shadow reads as print-on-paper, not
                   web-glossy. Slight ivory inner border reads as museum mount. */}
-              <div className="relative border border-cloud-ivory/15 shadow-[10px_10px_0_rgba(10,10,10,0.55)] transition-transform duration-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
+              <div className="relative border border-cloud-ivory/15 shadow-[10px_10px_0_rgba(10,10,10,0.55)] transition-transform duration-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0 motion-reduce:group-hover:translate-y-0">
                 <Image
                   src="/hero_image.png"
                   alt="Illustration — red passenger train crossing a stone-arch viaduct over a mountain lake, snow-capped peaks and cloud bank in the distance. Flat-colour style referencing Swiss SBB editorial."
@@ -193,7 +194,9 @@ export default function HomePage() {
         <div className="relative z-10 border-t border-cloud-ivory/10">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4 font-mono text-[10px] uppercase tracking-[0.28em] text-cloud-ivory/45 sm:text-[11px]">
             <div className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden">
-              <span className="hidden shrink-0 text-cloud-ivory/25 sm:inline">◂</span>
+              <span aria-hidden className="hidden shrink-0 text-cloud-ivory/25 sm:inline">
+                ◂
+              </span>
               <span className="flex min-w-0 items-center gap-4 truncate">
                 <span className="shrink-0">Effectively-once execution</span>
                 <span aria-hidden className="shrink-0 text-cloud-ivory/20">
@@ -212,10 +215,13 @@ export default function HomePage() {
             </div>
             <a
               href="#problem"
-              className="group flex shrink-0 items-center gap-2 text-cloud-ivory/60 transition-colors hover:text-cloud-ivory"
+              className="group flex shrink-0 items-center gap-2 rounded-sm px-1 text-cloud-ivory/60 transition-colors duration-200 hover:text-cloud-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cloud-ivory focus-visible:ring-offset-2 focus-visible:ring-offset-ink motion-reduce:transition-none"
             >
               <span>Scroll</span>
-              <ArrowDown className="h-3.5 w-3.5 transition-transform duration-500 group-hover:translate-y-0.5" />
+              <ArrowDown
+                aria-hidden
+                className="h-3.5 w-3.5 transition-transform duration-500 group-hover:translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
+              />
             </a>
           </div>
         </div>
