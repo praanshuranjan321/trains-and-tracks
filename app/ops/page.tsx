@@ -1,16 +1,16 @@
 'use client';
 
-// /ops — operator dashboard.
-//   - Recharts "Live bookings/sec" hero (via /api/insights proxy, 2s poll)
-//   - Grafana Shared Dashboard iframe slot (URL from NEXT_PUBLIC_GRAFANA_DASHBOARD_URL when set)
-//   - Big red SIMULATE SURGE button (admin-gated)
-//   - Kill Worker button (chaos demo)
-//   - Reset button
+// /ops — single-page operator dashboard.
+//   LEFT  column: hero Recharts chart + 6 KPI tiles + last-10 bookings
+//   RIGHT column: admin secret + surge controls + kill/reset + DLQ live
 //
-// Admin auth: the operator pastes ADMIN_SECRET into the field below and it's
-// stashed in sessionStorage. Yes, that's informal — this is a single-operator
-// hackathon demo, not a multi-tenant SaaS. ADR-014 (anon bookings, no auth
-// layer) explicitly defers real RBAC as orthogonal to the correctness problem.
+// Sized to the viewport so the operator clicks SIMULATE SURGE on the right
+// and immediately sees the chart + KPIs light up on the left — no scroll,
+// no jumping. Internal scroll only inside the bookings + DLQ lists.
+//
+// Admin auth: paste ADMIN_SECRET, sessionStorage. Single-operator hackathon
+// demo, not a multi-tenant SaaS. ADR-014 (anon bookings, no user auth) still
+// applies — this page is operator-gated, not user-gated.
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -112,7 +112,7 @@ export default function OpsPage() {
     if (saved) setAdminSecret(saved);
   }, []);
 
-  // Poll recent bookings — admin-gated, so only fires when token present.
+  // Poll recent bookings — admin-gated, only fires when token present.
   useEffect(() => {
     if (!adminSecret) return;
     let alive = true;
@@ -137,7 +137,7 @@ export default function OpsPage() {
     };
   }, [adminSecret]);
 
-  // Poll live stats (DB-direct, works without Grafana).
+  // Poll live stats (DB-direct). Read bucket, 300/min headroom.
   useEffect(() => {
     if (!adminSecret) return;
     let alive = true;
@@ -162,8 +162,7 @@ export default function OpsPage() {
     };
   }, [adminSecret]);
 
-  // Poll DLQ — longer interval (10s) because failures are rare and the panel
-  // is ambient context, not the centerpiece. Read bucket (300/min headroom).
+  // Poll DLQ — longer interval (10s) since failures are rare. Read bucket.
   useEffect(() => {
     if (!adminSecret) return;
     let alive = true;
@@ -196,8 +195,6 @@ export default function OpsPage() {
   const bookingsPerSec = useInsight('bookings_per_sec', HERO_RANGE, '2s');
   const ingressPerSec = useInsight('ingress_per_sec');
   const rejectionsPerSec = useInsight('rejections_per_sec');
-  const p95Latency = useInsight('p95_latency_ms');
-  const p99Latency = useInsight('p99_latency_ms');
   const queueDepth = useInsight('queue_depth');
   const dlqCount = useInsight('dlq_count');
 
@@ -260,17 +257,18 @@ export default function OpsPage() {
   const refresh = () => window.location.reload();
 
   return (
-    <main className="flex h-[calc(100vh-40px)] flex-col overflow-hidden bg-background text-foreground">
-      <header className="shrink-0 border-b border-zinc-800/60 bg-background/80 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
+    <main className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+      {/* Compact header — not sticky because the whole page is viewport-sized */}
+      <header className="shrink-0 border-b border-zinc-800/60 bg-background/80">
+        <div className="mx-auto flex w-full max-w-[1800px] items-center justify-between px-4 py-2.5">
+          <div className="flex items-center gap-3">
             <Link
               href="/"
               className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground hover:text-foreground"
             >
               ← trains and tracks
             </Link>
-            <div id="rate-limiter-pill" className="flex items-center gap-1.5 rounded-full border border-zinc-700/60 bg-zinc-900/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+            <div className="flex items-center gap-1.5 rounded-full border border-zinc-700/60 bg-zinc-900/40 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
               rate limiter · 100/10s
             </div>
           </div>
@@ -284,294 +282,322 @@ export default function OpsPage() {
                 system healthy
               </span>
             </div>
-            <Button variant="ghost" size="sm" onClick={refresh} className="gap-2 font-mono text-[10px] uppercase tracking-widest">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={refresh}
+              className="h-7 gap-2 font-mono text-[10px] uppercase tracking-widest"
+            >
               <RefreshCw className="h-3 w-3" /> reload
             </Button>
           </div>
         </div>
       </header>
 
-      <section className="mx-auto flex w-full min-h-0 max-w-7xl flex-1 flex-col space-y-3 overflow-auto px-6 py-3">
-        {/* Admin secret input (kept subtle) */}
-        <Card className="border-zinc-800/60 bg-zinc-950/40">
-          <CardContent className="flex flex-wrap items-end gap-3 pt-5">
-            <div className="flex-1 min-w-[240px] space-y-1.5">
-              <Label
-                htmlFor="admin-secret"
-                className="font-mono text-[11px] uppercase tracking-widest text-muted-foreground"
-              >
-                admin secret
-              </Label>
-              <Input
-                id="admin-secret"
-                type="password"
-                value={adminSecret}
-                onChange={(e) => setAdminSecret(e.target.value)}
-                placeholder="paste ADMIN_SECRET"
-                className="font-mono"
+      {/* Two-column dashboard grid. Left 9 cols = chart + KPIs + bookings;
+          right 3 cols = admin secret + surge + chaos + DLQ. */}
+      <div className="mx-auto flex w-full min-h-0 max-w-[1800px] flex-1 gap-3 px-3 py-3">
+        <div className="grid w-full min-h-0 grid-cols-12 gap-3">
+          {/* === LEFT ========================================================= */}
+          <div className="col-span-12 flex min-h-0 flex-col gap-3 lg:col-span-9">
+            {/* Hero chart — fills whatever vertical space is left */}
+            <Card className="flex min-h-0 flex-1 flex-col border-zinc-800/60 bg-zinc-950/40">
+              <CardHeader className="shrink-0 pb-2">
+                <CardTitle className="flex items-baseline justify-between font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
+                  <span>confirmations / sec · last 60s</span>
+                  <span className="font-mono text-4xl tabular-nums text-[#00D084]">
+                    {liveStats?.series.length
+                      ? liveStats.series[liveStats.series.length - 1]!.confirmed.toLocaleString()
+                      : latestValue(bookingsPerSec)?.toFixed(2) ?? '—'}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 pb-3">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={heroData} margin={{ top: 4, right: 12, bottom: 0, left: -10 }}>
+                    <defs>
+                      <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#00D084" stopOpacity={0.3} />
+                        <stop offset="100%" stopColor="#00D084" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="oklch(0.22 0 0)" strokeDasharray="2 4" vertical={false} />
+                    <XAxis
+                      dataKey="t"
+                      tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)', fontFamily: 'ui-monospace, monospace' }}
+                      axisLine={{ stroke: 'oklch(0.22 0 0)' }}
+                      tickLine={false}
+                      minTickGap={32}
+                    />
+                    <YAxis
+                      tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)', fontFamily: 'ui-monospace, monospace' }}
+                      axisLine={{ stroke: 'oklch(0.22 0 0)' }}
+                      tickLine={false}
+                      width={32}
+                    />
+                    <Tooltip
+                      contentStyle={{
+                        background: 'oklch(0.12 0 0)',
+                        border: '1px solid oklch(0.25 0 0)',
+                        borderRadius: 6,
+                        fontFamily: 'ui-monospace, monospace',
+                        fontSize: 11,
+                      }}
+                      labelStyle={{ color: 'oklch(0.6 0 0)', textTransform: 'uppercase', fontSize: 10 }}
+                    />
+                    <Line
+                      type="monotone"
+                      dataKey="v"
+                      stroke="#00D084"
+                      strokeWidth={2}
+                      dot={false}
+                      isAnimationActive={false}
+                      fill="url(#heroFill)"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* 6 KPI tiles in one compact horizontal strip */}
+            <div className="shrink-0 grid grid-cols-3 gap-2 md:grid-cols-6">
+              <MiniStat
+                label="Ingress"
+                value={liveStats?.bookings.total ?? latestValue(ingressPerSec)}
+                raw={liveStats !== null}
+                compact
+              />
+              <MiniStat
+                label="Pending"
+                value={liveStats?.bookings.pending ?? latestValue(queueDepth)}
+                raw={liveStats !== null}
+                compact
+              />
+              <MiniStat
+                label="Available"
+                value={liveStats?.inventory.available ?? null}
+                raw
+                compact
+              />
+              <MiniStat
+                label="Confirmed"
+                value={liveStats?.bookings.confirmed ?? latestValue(bookingsPerSec)}
+                accent
+                raw={liveStats !== null}
+                compact
+              />
+              <MiniStat
+                label="Failed"
+                value={liveStats?.bookings.failed ?? latestValue(rejectionsPerSec)}
+                raw={liveStats !== null}
+                compact
+              />
+              <MiniStat
+                label="DLQ"
+                value={liveStats?.dlq ?? latestValue(dlqCount)}
+                raw={liveStats !== null}
+                compact
               />
             </div>
-          </CardContent>
-          {lastAction && (
-            <CardContent className="pt-0">
-              <div className="rounded-md border border-zinc-800 bg-zinc-950/60 p-3 font-mono text-xs text-muted-foreground">
-                {lastAction}
-              </div>
-            </CardContent>
-          )}
-        </Card>
 
-        {/* Hero chart — confirmations/sec last 60s. Flex-1 so it fills the
-            residual vertical space between the stat grid above and the surge
-            controls below. */}
-        <Card className="flex min-h-[240px] flex-1 flex-col border-zinc-800/60 bg-zinc-950/40">
-          <CardHeader className="shrink-0 pb-3">
-            <CardTitle className="flex items-baseline justify-between font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
-              <span>confirmations / sec · last 60s</span>
-              <span className="font-mono text-4xl tabular-nums text-[#00D084]">
-                {liveStats?.series.length
-                  ? liveStats.series[liveStats.series.length - 1]!.confirmed.toLocaleString()
-                  : latestValue(bookingsPerSec)?.toFixed(2) ?? '—'}
-              </span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex min-h-0 flex-1 flex-col">
-            <div className="h-full min-h-0 flex-1">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={heroData} margin={{ top: 10, right: 20, bottom: 0, left: -10 }}>
-                  <defs>
-                    <linearGradient id="heroFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#00D084" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="#00D084" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid stroke="oklch(0.22 0 0)" strokeDasharray="2 4" vertical={false} />
-                  <XAxis
-                    dataKey="t"
-                    tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)', fontFamily: 'ui-monospace, monospace' }}
-                    axisLine={{ stroke: 'oklch(0.22 0 0)' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 10, fill: 'oklch(0.55 0 0)', fontFamily: 'ui-monospace, monospace' }}
-                    axisLine={{ stroke: 'oklch(0.22 0 0)' }}
-                    tickLine={false}
-                    width={32}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      background: 'oklch(0.12 0 0)',
-                      border: '1px solid oklch(0.25 0 0)',
-                      borderRadius: 6,
-                      fontFamily: 'ui-monospace, monospace',
-                      fontSize: 11,
-                    }}
-                    labelStyle={{ color: 'oklch(0.6 0 0)', textTransform: 'uppercase', fontSize: 10 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="v"
-                    stroke="#00D084"
-                    strokeWidth={2}
-                    dot={false}
-                    isAnimationActive={false}
-                    fill="url(#heroFill)"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* 6-panel metric grid. Uses live DB stats if available (local),
-            falls back to Grafana proxy (production). */}
-        <div className="relative grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-          <MiniStat
-            label="Ingress (total)"
-            value={liveStats?.bookings.total ?? latestValue(ingressPerSec)}
-            raw={liveStats !== null}
-          />
-          <MiniStat
-            label="Pending"
-            value={liveStats?.bookings.pending ?? latestValue(queueDepth)}
-            raw={liveStats !== null}
-          />
-          <MiniStat
-            label="Available seats"
-            value={liveStats?.inventory.available ?? null}
-            raw
-          />
-          <MiniStat
-            label="Confirmed"
-            value={liveStats?.bookings.confirmed ?? latestValue(bookingsPerSec)}
-            accent
-            raw={liveStats !== null}
-          />
-          <div className="relative" id="rl-tile">
-            <MiniStat
-              label="Failed"
-              value={liveStats?.bookings.failed ?? latestValue(rejectionsPerSec)}
-              raw={liveStats !== null}
-            />
-            {/* HUD connector — dashed line from rate-limiter pill in header to this tile */}
-            <svg
-              className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 hidden lg:block"
-              width="1"
-              height="32"
-              viewBox="0 0 1 32"
-              fill="none"
-              aria-hidden
-            >
-              <line
-                x1="0.5"
-                y1="0"
-                x2="0.5"
-                y2="32"
-                stroke="#00D084"
-                strokeWidth="1"
-                strokeDasharray="2 3"
-                opacity="0.5"
-              />
-            </svg>
-          </div>
-          <MiniStat
-            label="DLQ"
-            value={liveStats?.dlq ?? latestValue(dlqCount)}
-            raw={liveStats !== null}
-          />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <MiniStat label="p95 latency" value={latestValue(p95Latency)} suffix="ms" wide />
-          <MiniStat label="p99 latency" value={latestValue(p99Latency)} suffix="ms" wide />
-        </div>
-
-        {/* Simulate Surge — the headline chaos button */}
-        <div className="flex flex-col items-center gap-4 py-4">
-          <div className="flex items-end gap-3">
-            <div className="space-y-1">
-              <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                requests
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                max={100000}
-                step={100}
-                value={surgeN}
-                onChange={(e) => setSurgeN(Math.min(100000, Math.max(1, Number(e.target.value) || 0)))}
-                className="w-32 font-mono tabular-nums"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                window (s)
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                max={60}
-                step={1}
-                value={surgeWindow}
-                onChange={(e) => setSurgeWindow(Math.min(60, Math.max(1, Number(e.target.value) || 0)))}
-                className="w-24 font-mono tabular-nums"
-              />
-            </div>
-          </div>
-          <button
-            onClick={simulate}
-            disabled={busy !== null || !adminSecret || surgeN < 1}
-            className="group relative overflow-hidden rounded-lg border-2 border-red-500/60 bg-red-500/10 px-10 py-6 font-mono text-lg uppercase tracking-[0.2em] text-red-400 transition-all hover:border-red-500 hover:bg-red-500/20 hover:text-red-300 hover:shadow-[0_0_40px_rgba(239,68,68,0.4)] disabled:opacity-40 disabled:hover:shadow-none disabled:cursor-not-allowed"
-          >
-            <span className="relative z-10 flex items-center gap-3">
-              <Play className="h-5 w-5" />
-              Simulate Tatkal Surge
-            </span>
-            <span className="absolute inset-0 -z-0 bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.15),transparent_70%)] opacity-0 transition-opacity group-hover:opacity-100" />
-          </button>
-          <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            {surgeN.toLocaleString()} requests · {surgeWindow} s · per-train serialization
-          </div>
-        </div>
-
-        {/* Admin strip — secondary chaos controls */}
-        <div className="flex flex-wrap items-center justify-center gap-3">
-          <Button
-            onClick={kill}
-            disabled={busy !== null || !adminSecret}
-            variant="outline"
-            size="sm"
-            className="gap-2 font-mono text-[11px] uppercase tracking-widest"
-          >
-            <Skull className="h-3.5 w-3.5" /> kill worker
-          </Button>
-          <Button
-            onClick={reset}
-            disabled={busy !== null || !adminSecret}
-            variant="outline"
-            size="sm"
-            className="gap-2 font-mono text-[11px] uppercase tracking-widest"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> reset demo
-          </Button>
-          <Link
-            href="#"
-            onClick={async (e) => {
-              e.preventDefault();
-              if (!adminSecret) return;
-              const res = await fetch('/api/admin/dlq', {
-                headers: { Authorization: `Bearer ${adminSecret}` },
-              });
-              const body = (await res.json()) as { total?: number; jobs?: unknown[] };
-              setLastAction(`DLQ: ${body.total ?? 0} entries · ${JSON.stringify(body.jobs?.slice(0, 2) ?? [])}`);
-            }}
-            className="inline-flex items-center gap-2 rounded-md border border-input bg-background px-3 py-1.5 font-mono text-[11px] uppercase tracking-widest text-foreground hover:bg-muted"
-          >
-            dlq list
-          </Link>
-        </div>
-
-        {/* Live last-10 bookings */}
-        <Card className="border-zinc-800/60 bg-zinc-950/40">
-          <CardHeader className="pb-3">
-            <CardTitle className="font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
-              last 10 bookings · live
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recent.length === 0 ? (
-              <div className="py-3 text-center font-mono text-xs text-muted-foreground">
-                {adminSecret ? 'no bookings yet' : 'paste admin secret to enable'}
-              </div>
-            ) : (
-              <div className="divide-y divide-zinc-800/60">
-                {recent.map((b) => (
-                  <div key={b.id} className="flex items-center gap-3 py-2 font-mono text-[11px]">
-                    <StatusIcon status={b.status} />
-                    <span className="w-20 shrink-0 text-muted-foreground">{b.seatId ?? '—'}</span>
-                    <span className="flex-1 truncate">{b.passengerName}</span>
-                    <span className="text-muted-foreground">
-                      {new Date(b.createdAt).toLocaleTimeString('en-GB', { hour12: false })}
-                    </span>
-                    <span
-                      className={`w-24 shrink-0 text-right uppercase tracking-widest text-[10px] ${
-                        b.status === 'CONFIRMED'
-                          ? 'text-[#00D084]'
-                          : b.status === 'PENDING'
-                            ? 'text-amber-400'
-                            : 'text-destructive'
-                      }`}
-                    >
-                      {b.status}
-                    </span>
+            {/* Last 10 bookings — fixed-height panel, internal scroll */}
+            <Card className="flex shrink-0 max-h-[210px] flex-col border-zinc-800/60 bg-zinc-950/40">
+              <CardHeader className="shrink-0 pb-2">
+                <CardTitle className="font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
+                  last 10 bookings · live
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto pb-2">
+                {recent.length === 0 ? (
+                  <div className="py-4 text-center font-mono text-xs text-muted-foreground">
+                    {adminSecret ? 'no bookings yet' : 'paste admin secret to enable'}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                ) : (
+                  <div className="divide-y divide-zinc-800/60">
+                    {recent.map((b) => (
+                      <div
+                        key={b.id}
+                        className="flex items-center gap-3 py-1.5 font-mono text-[11px]"
+                      >
+                        <StatusIcon status={b.status} />
+                        <span className="w-20 shrink-0 text-muted-foreground">{b.seatId ?? '—'}</span>
+                        <span className="flex-1 truncate">{b.passengerName}</span>
+                        <span className="text-muted-foreground">
+                          {new Date(b.createdAt).toLocaleTimeString('en-GB', { hour12: false })}
+                        </span>
+                        <span
+                          className={`w-24 shrink-0 text-right text-[10px] uppercase tracking-widest ${
+                            b.status === 'CONFIRMED'
+                              ? 'text-[#00D084]'
+                              : b.status === 'PENDING'
+                                ? 'text-amber-400'
+                                : 'text-destructive'
+                          }`}
+                        >
+                          {b.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-      </section>
+          {/* === RIGHT ======================================================= */}
+          <aside className="col-span-12 flex min-h-0 flex-col gap-3 lg:col-span-3">
+            {/* Admin secret — compact */}
+            <Card className="shrink-0 border-zinc-800/60 bg-zinc-950/40">
+              <CardContent className="space-y-1.5 py-3">
+                <Label
+                  htmlFor="admin-secret"
+                  className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground"
+                >
+                  admin secret
+                </Label>
+                <Input
+                  id="admin-secret"
+                  type="password"
+                  value={adminSecret}
+                  onChange={(e) => setAdminSecret(e.target.value)}
+                  placeholder="paste ADMIN_SECRET"
+                  className="h-8 font-mono text-xs"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Surge — primary demo action */}
+            <Card className="shrink-0 border-red-900/40 bg-red-950/10">
+              <CardHeader className="shrink-0 pb-2">
+                <CardTitle className="font-mono text-[10px] font-normal uppercase tracking-widest text-red-400/80">
+                  surge · tatkal simulator
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      requests
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={100000}
+                      step={100}
+                      value={surgeN}
+                      onChange={(e) =>
+                        setSurgeN(Math.min(100000, Math.max(1, Number(e.target.value) || 0)))
+                      }
+                      className="h-8 font-mono tabular-nums"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                      window (s)
+                    </Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={60}
+                      step={1}
+                      value={surgeWindow}
+                      onChange={(e) =>
+                        setSurgeWindow(Math.min(60, Math.max(1, Number(e.target.value) || 0)))
+                      }
+                      className="h-8 font-mono tabular-nums"
+                    />
+                  </div>
+                </div>
+                <button
+                  onClick={simulate}
+                  disabled={busy !== null || !adminSecret || surgeN < 1}
+                  className="group relative w-full overflow-hidden rounded-md border-2 border-red-500/60 bg-red-500/10 px-3 py-3 font-mono text-xs uppercase tracking-[0.15em] text-red-400 transition-all hover:border-red-500 hover:bg-red-500/20 hover:text-red-300 hover:shadow-[0_0_24px_rgba(239,68,68,0.35)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:shadow-none"
+                >
+                  <span className="relative z-10 flex items-center justify-center gap-2">
+                    <Play className="h-4 w-4" />
+                    Simulate Tatkal Surge
+                  </span>
+                </button>
+                <div className="text-center font-mono text-[9px] uppercase tracking-widest text-muted-foreground">
+                  {surgeN.toLocaleString()} req · {surgeWindow} s · per-train FIFO
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Chaos — kill-worker + reset side by side */}
+            <Card className="shrink-0 border-zinc-800/60 bg-zinc-950/40">
+              <CardHeader className="shrink-0 pb-2">
+                <CardTitle className="font-mono text-[10px] font-normal uppercase tracking-widest text-muted-foreground">
+                  chaos
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex gap-2">
+                <Button
+                  onClick={kill}
+                  disabled={busy !== null || !adminSecret}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 flex-1 gap-1.5 font-mono text-[10px] uppercase tracking-widest"
+                >
+                  <Skull className="h-3 w-3" /> kill 3
+                </Button>
+                <Button
+                  onClick={reset}
+                  disabled={busy !== null || !adminSecret}
+                  variant="outline"
+                  size="sm"
+                  className="h-8 flex-1 gap-1.5 font-mono text-[10px] uppercase tracking-widest"
+                >
+                  <Trash2 className="h-3 w-3" /> reset
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* DLQ — live panel, fills remaining vertical space */}
+            <Card className="flex min-h-0 flex-1 flex-col border-zinc-800/60 bg-zinc-950/40">
+              <CardHeader className="shrink-0 pb-2">
+                <CardTitle className="flex items-baseline justify-between font-mono text-[10px] font-normal uppercase tracking-widest text-muted-foreground">
+                  <span>dlq · unresolved</span>
+                  <span className="font-mono text-base tabular-nums text-foreground">
+                    {dlq.length}
+                  </span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="min-h-0 flex-1 overflow-y-auto pb-2">
+                {dlq.length === 0 ? (
+                  <div className="py-4 text-center font-mono text-[10px] text-muted-foreground">
+                    {adminSecret ? 'empty — system healthy' : 'paste admin secret'}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-zinc-800/60">
+                    {dlq.map((j) => (
+                      <div key={j.id} className="space-y-0.5 py-1.5 font-mono text-[10px]">
+                        <div className="flex items-center justify-between text-muted-foreground">
+                          <span className="truncate">{j.errorReason}</span>
+                          <span className="shrink-0">×{j.attemptCount}</span>
+                        </div>
+                        <div className="truncate text-[9px] text-muted-foreground/70">
+                          {j.qstashMessageId.slice(0, 18)}… ·{' '}
+                          {new Date(j.createdAt).toLocaleTimeString('en-GB', { hour12: false })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </aside>
+        </div>
+      </div>
+
+      {/* Footer action log — appears only when there's something to show */}
+      {lastAction && (
+        <div className="shrink-0 border-t border-zinc-800/60 bg-zinc-950/60">
+          <div className="mx-auto w-full max-w-[1800px] truncate px-4 py-2 font-mono text-[10px] text-muted-foreground">
+            {lastAction}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
@@ -589,6 +615,7 @@ function MiniStat({
   accent,
   wide,
   raw,
+  compact,
 }: {
   label: string;
   value: number | null;
@@ -597,22 +624,32 @@ function MiniStat({
   wide?: boolean;
   /** true = render as integer (counts); false = render as float with 2dp (rates). */
   raw?: boolean;
+  /** compact = tighter padding + smaller value text, for the 6-tile strip. */
+  compact?: boolean;
 }) {
   return (
     <Card className="border-zinc-800/60 bg-zinc-950/40">
-      <CardHeader className="pb-2">
+      <CardHeader className={compact ? 'pb-0 pt-2.5' : 'pb-2'}>
         <CardTitle
-          className={`font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground ${wide ? 'text-xs' : ''}`}
+          className={`font-mono font-normal uppercase tracking-widest text-muted-foreground ${
+            compact ? 'text-[10px]' : wide ? 'text-xs' : 'text-[11px]'
+          }`}
         >
           {label}
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className={compact ? 'pb-2.5' : ''}>
         <div
-          className={`font-mono tabular-nums ${wide ? 'text-4xl' : 'text-3xl'} ${accent ? 'text-[#00D084]' : ''}`}
+          className={`font-mono tabular-nums ${
+            compact ? 'text-xl' : wide ? 'text-4xl' : 'text-3xl'
+          } ${accent ? 'text-[#00D084]' : ''}`}
         >
           {value === null ? '—' : raw ? value.toLocaleString() : value.toFixed(2)}
-          {suffix && <span className="ml-1 text-sm text-muted-foreground">{suffix}</span>}
+          {suffix && (
+            <span className={`ml-1 text-muted-foreground ${compact ? 'text-[10px]' : 'text-sm'}`}>
+              {suffix}
+            </span>
+          )}
         </div>
       </CardContent>
     </Card>

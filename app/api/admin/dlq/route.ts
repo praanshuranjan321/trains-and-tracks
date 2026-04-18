@@ -1,5 +1,7 @@
 // GET /api/admin/dlq — list unresolved DLQ jobs (operator mirror).
-// Auth: Bearer ADMIN_SECRET. Limited to 30/min via custom Lua log.
+// Auth: Bearer ADMIN_SECRET. Read-only endpoint — uses the READ bucket
+// (300/min) so the /ops panel can poll continuously without starving the
+// mutation bucket. See ADR-011 Consequences.
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
@@ -14,7 +16,7 @@ export const maxDuration = 15;
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const requestId = `req_${ulid().toLowerCase()}`;
-  const auth = await requireAdmin(req);
+  const auth = await requireAdmin(req, { kind: 'read' });
   if (!auth.ok) {
     const status = auth.errorCode === 'rate_limit_exceeded' ? 429 : 401;
     return apiError({
