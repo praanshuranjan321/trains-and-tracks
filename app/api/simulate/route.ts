@@ -93,9 +93,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Single-flight: prevent two simulators running at once.
   const simulationId = `sim_${ulid().toLowerCase()}`;
+  // Lock TTL = windowSeconds + 10s safety margin. The prior +60 was
+  // overkill for small demo bursts (10 req / 2s lock would hold 70s,
+  // wedging any re-fire for over a minute). Crash recovery still
+  // works; the operator just waits ~12s instead of 70s to retry.
   const claim = await redis.set('simulate:running', simulationId, {
     nx: true,
-    ex: windowSeconds + 60, // auto-release if we crash
+    ex: windowSeconds + 10,
   });
   if (claim !== 'OK') {
     return apiError({

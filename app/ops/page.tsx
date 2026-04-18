@@ -102,8 +102,12 @@ export default function OpsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentBooking[]>([]);
-  const [surgeN, setSurgeN] = useState<number>(1000);
-  const [surgeWindow, setSurgeWindow] = useState<number>(10);
+  const [surgeN, setSurgeN] = useState<number>(100);
+  // Default window = 2s. Smaller is better for the demo: the simulator holds a
+  // Redis `simulate:running` lock for (windowSeconds + 10). Larger windows
+  // spread requests thinly, making the chart look flat; smaller windows cluster
+  // them so the chart spikes visibly and the lock clears fast enough to re-fire.
+  const [surgeWindow, setSurgeWindow] = useState<number>(2);
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
   const [dlq, setDlq] = useState<DlqJob[]>([]);
 
