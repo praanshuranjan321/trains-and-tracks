@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
+import { LoadingScreen } from '@/components/landing/LoadingScreen';
 
 // Body text. Named --font-inter (not --font-sans) so the Tailwind `@theme`
 // `--font-sans` token can compose with a fallback stack without self-reference.
@@ -63,6 +64,7 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable} h-full dark antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
+        <LoadingScreen />
         {children}
       </body>
     </html>

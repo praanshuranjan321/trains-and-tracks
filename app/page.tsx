@@ -7,10 +7,10 @@
 // treatment survives on /ops where Grafana-dark is the brief.
 
 import Link from 'next/link';
-import Image from 'next/image';
-import { ArrowDown, ArrowRight } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
 import { buttonVariants } from '@/components/ui/button';
+import { HeroSection } from '@/components/landing/HeroSection';
 
 const CASE_STUDIES = [
   {
@@ -42,182 +42,11 @@ const CASE_STUDIES = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-ink text-cloud-ivory">
-      {/* Hero — full-bleed flat-illustration cover. 100vh. Image as backdrop
-          with `object-cover`; content overlaid with dark tonal gradients at
-          left/bottom for text legibility without flattening the illustration.
-          Rubric rail top + ticker + scroll cue bottom sit on a very subtle
-          ink-wash strip. */}
-      <section className="relative isolate flex min-h-screen flex-col overflow-hidden bg-ink text-cloud-ivory">
-        {/* Full-bleed illustration. object-position nudged right so the train
-            on the viaduct stays visible on narrow viewports while the sky/
-            mountain space on the left carries the overlay type. */}
-        <Image
-          src="/hero_image.png"
-          alt="Illustration — red passenger train crossing a stone-arch viaduct over a mountain lake, snow-capped peaks and cloud bank in the distance. Flat-colour style referencing Swiss SBB editorial."
-          fill
-          priority
-          sizes="100vw"
-          className="-z-20 select-none object-cover object-[65%_50%]"
-        />
-
-        {/* Tonal overlays for text legibility. Two gradients layered: one
-            darkening the bottom third (footer copy area), one darkening the
-            left diagonal (headline + italic sub + CTAs). Neither obscures the
-            centerpiece — the train on the viaduct sits in the bright
-            "keep-clear" quadrant. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-ink via-ink/55 to-ink/0"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-ink/75 via-ink/25 to-transparent"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-ink/70 to-transparent"
-        />
-
-        {/* Paper-grain noise over everything — keeps flat digital areas from
-            looking CRT-smooth. */}
-        <svg
-          className="pointer-events-none absolute inset-0 -z-0 h-full w-full opacity-[0.05] mix-blend-overlay"
-          aria-hidden
-        >
-          <filter id="hero-grain">
-            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
-            <feColorMatrix type="saturate" values="0" />
-          </filter>
-          <rect width="100%" height="100%" filter="url(#hero-grain)" />
-        </svg>
-
-        {/* Top rubric bar — departure-card framing, sits on a hairline rule. */}
-        <header className="relative z-10 border-b border-cloud-ivory/15 bg-ink/25 backdrop-blur-[2px]">
-          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 font-mono text-[10px] uppercase tracking-[0.22em] text-cloud-ivory/75 sm:text-[11px]">
-            <div className="flex items-center gap-3">
-              <span aria-hidden className="inline-flex h-1.5 w-1.5 rounded-full bg-train-red" />
-              <span translate="no">Trains &amp; Tracks</span>
-              <span aria-hidden className="hidden text-cloud-ivory/30 sm:inline">
-                /
-              </span>
-              <span className="hidden sm:inline">№ 01 · Departures</span>
-            </div>
-            <div className="hidden items-center gap-5 md:flex">
-              <span>NDLS → BCT</span>
-              <span aria-hidden className="text-cloud-ivory/30">
-                ·
-              </span>
-              <span>Est. April 2026</span>
-            </div>
-          </div>
-        </header>
-
-        {/* Main overlay content — pinned to the bottom-left over the darker
-            quadrant of the image. */}
-        <div className="relative z-10 flex flex-1 items-end">
-          <div className="mx-auto w-full max-w-7xl px-6 pb-16 pt-24 sm:pb-20 lg:pb-24">
-            <div className="max-w-[56rem]">
-              <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.3em] text-train-red sm:text-[11px]">
-                <span aria-hidden className="h-px w-8 bg-train-red/80" />
-                <span className="drop-shadow-[0_1px_8px_rgba(20,26,28,0.6)]">
-                  The Tatkal problem, solved
-                </span>
-              </div>
-
-              <h1
-                className="mt-6 font-serif font-medium uppercase text-balance text-cloud-ivory drop-shadow-[0_2px_16px_rgba(10,12,14,0.55)]"
-                style={{
-                  fontSize: 'clamp(3rem, 8vw, 8rem)',
-                  lineHeight: 0.9,
-                  letterSpacing: '-0.03em',
-                  fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 0',
-                }}
-              >
-                Exactly once.
-                <span className="block">Every time.</span>
-              </h1>
-
-              <div className="mt-10 flex items-start gap-4">
-                <span aria-hidden className="mt-3 hidden h-px w-10 shrink-0 bg-cloud-ivory/50 sm:block" />
-                <p
-                  className="max-w-[38ch] font-serif italic text-cloud-ivory/90 drop-shadow-[0_1px_10px_rgba(10,12,14,0.55)]"
-                  style={{
-                    fontSize: 'clamp(1.125rem, 2.1vw, 1.5rem)',
-                    lineHeight: 1.35,
-                    fontVariationSettings: '"opsz" 36, "SOFT" 0',
-                  }}
-                >
-                  What IRCTC Tatkal should have been.
-                </p>
-              </div>
-
-              <div className="mt-12 flex flex-wrap items-center gap-x-3 gap-y-4">
-                <Link
-                  href="/book"
-                  className={buttonVariants({
-                    size: 'lg',
-                    className:
-                      'group h-12 gap-2 rounded-none bg-train-red px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory shadow-[0_8px_30px_rgba(193,74,74,0.35)] transition-[background-color,color,box-shadow] duration-200 hover:bg-train-red-dark hover:text-paper hover:shadow-[0_10px_40px_rgba(193,74,74,0.45)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cloud-ivory focus-visible:ring-offset-2 focus-visible:ring-offset-ink motion-reduce:transition-none',
-                  })}
-                >
-                  Try Booking
-                  <ArrowRight
-                    aria-hidden
-                    className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1 motion-reduce:transition-none motion-reduce:group-hover:translate-x-0"
-                  />
-                </Link>
-                <Link
-                  href="/ops"
-                  className={buttonVariants({
-                    size: 'lg',
-                    variant: 'outline',
-                    className:
-                      'h-12 gap-2 rounded-none border-cloud-ivory/50 bg-ink/20 px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory backdrop-blur-sm transition-[background-color,border-color,color] duration-200 hover:border-cloud-ivory hover:bg-cloud-ivory/10 hover:text-cloud-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cloud-ivory focus-visible:ring-offset-2 focus-visible:ring-offset-ink motion-reduce:transition-none',
-                  })}
-                >
-                  See It Running
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Foot strip — ticker of correctness primitives + scroll chevron. */}
-        <footer className="relative z-10 border-t border-cloud-ivory/15 bg-ink/30 backdrop-blur-[2px]">
-          <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4 font-mono text-[10px] uppercase tracking-[0.28em] text-cloud-ivory/65 sm:text-[11px]">
-            <div className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden">
-              <span aria-hidden className="hidden shrink-0 text-cloud-ivory/35 sm:inline">
-                ◂
-              </span>
-              <span className="flex min-w-0 items-center gap-4 truncate">
-                <span className="shrink-0">Effectively-once execution</span>
-                <span aria-hidden className="shrink-0 text-cloud-ivory/30">
-                  ·
-                </span>
-                <span className="hidden shrink-0 sm:inline">FOR UPDATE SKIP LOCKED</span>
-                <span aria-hidden className="hidden shrink-0 text-cloud-ivory/30 sm:inline">
-                  ·
-                </span>
-                <span className="hidden shrink-0 md:inline">Stripe-contract idempotency</span>
-                <span aria-hidden className="hidden shrink-0 text-cloud-ivory/30 md:inline">
-                  ·
-                </span>
-                <span className="hidden shrink-0 lg:inline">QStash flow control</span>
-              </span>
-            </div>
-            <a
-              href="#problem"
-              className="group flex shrink-0 items-center gap-2 rounded-sm px-1 text-cloud-ivory/75 transition-colors duration-200 hover:text-cloud-ivory focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cloud-ivory focus-visible:ring-offset-2 focus-visible:ring-offset-ink motion-reduce:transition-none"
-            >
-              <span>Scroll</span>
-              <ArrowDown
-                aria-hidden
-                className="h-3.5 w-3.5 transition-transform duration-500 group-hover:translate-y-0.5 motion-reduce:transition-none motion-reduce:group-hover:translate-y-0"
-              />
-            </a>
-          </div>
-        </footer>
-      </section>
+      {/* Hero — full-bleed illustration + framer-motion staggered reveal +
+          GSAP ScrollTrigger image parallax. Client component because both
+          motion libraries need window; overlay-free so the flat illustration
+          reads cleanly, text-shadow carries legibility on every glyph block. */}
+      <HeroSection />
 
       {/* Problem — editorial case-study register. 4 entries split by hairlines
           (horizontal on mobile, vertical on desktop). Big mono tabular number
