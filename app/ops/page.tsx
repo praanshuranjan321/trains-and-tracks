@@ -86,6 +86,8 @@ export default function OpsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [lastAction, setLastAction] = useState<string | null>(null);
   const [recent, setRecent] = useState<RecentBooking[]>([]);
+  const [surgeN, setSurgeN] = useState<number>(1000);
+  const [surgeWindow, setSurgeWindow] = useState<number>(10);
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem(SS_KEY) : null;
@@ -173,8 +175,8 @@ export default function OpsPage() {
   const simulate = () =>
     callAdmin(
       '/api/simulate',
-      { trainId: '12951', requestCount: 100000, windowSeconds: 10 },
-      'Simulate surge (100,000 req / 10 s)',
+      { trainId: '12951', requestCount: surgeN, windowSeconds: surgeWindow },
+      `Simulate surge (${surgeN.toLocaleString()} req / ${surgeWindow} s)`,
     );
   const kill = () =>
     callAdmin('/api/admin/kill-worker', { failNextN: 3, failureMode: '500' }, 'Kill next 3 worker runs');
@@ -342,10 +344,40 @@ export default function OpsPage() {
         </div>
 
         {/* Simulate Surge — the headline chaos button */}
-        <div className="flex flex-col items-center gap-3 py-4">
+        <div className="flex flex-col items-center gap-4 py-4">
+          <div className="flex items-end gap-3">
+            <div className="space-y-1">
+              <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                requests
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                max={100000}
+                step={100}
+                value={surgeN}
+                onChange={(e) => setSurgeN(Math.min(100000, Math.max(1, Number(e.target.value) || 0)))}
+                className="w-32 font-mono tabular-nums"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                window (s)
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                value={surgeWindow}
+                onChange={(e) => setSurgeWindow(Math.min(60, Math.max(1, Number(e.target.value) || 0)))}
+                className="w-24 font-mono tabular-nums"
+              />
+            </div>
+          </div>
           <button
             onClick={simulate}
-            disabled={busy !== null || !adminSecret}
+            disabled={busy !== null || !adminSecret || surgeN < 1}
             className="group relative overflow-hidden rounded-lg border-2 border-red-500/60 bg-red-500/10 px-10 py-6 font-mono text-lg uppercase tracking-[0.2em] text-red-400 transition-all hover:border-red-500 hover:bg-red-500/20 hover:text-red-300 hover:shadow-[0_0_40px_rgba(239,68,68,0.4)] disabled:opacity-40 disabled:hover:shadow-none disabled:cursor-not-allowed"
           >
             <span className="relative z-10 flex items-center gap-3">
@@ -355,7 +387,7 @@ export default function OpsPage() {
             <span className="absolute inset-0 -z-0 bg-[radial-gradient(ellipse_at_center,rgba(239,68,68,0.15),transparent_70%)] opacity-0 transition-opacity group-hover:opacity-100" />
           </button>
           <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-            100,000 requests · 10 seconds · per-train serialization
+            {surgeN.toLocaleString()} requests · {surgeWindow} s · per-train serialization
           </div>
         </div>
 

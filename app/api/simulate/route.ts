@@ -114,9 +114,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const t0 = Date.now();
     const results: number[] = [];
 
-    // Chunk into batches of up to 500 concurrent fetches — Node's undici can
-    // handle that; beyond we risk FD exhaustion.
-    const CHUNK = 500;
+    // Chunk into batches of up to N concurrent fetches — Node's undici can
+    // handle ~500 before FD pressure; env override for tuning.
+    const CHUNK = Number(process.env.SIMULATE_CHUNK_SIZE ?? 500);
     for (let i = 0; i < requestCount; i += CHUNK) {
       const batchSize = Math.min(CHUNK, requestCount - i);
       const batchStart = Date.now();

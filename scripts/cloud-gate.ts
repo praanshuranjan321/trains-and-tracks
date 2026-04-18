@@ -19,10 +19,12 @@ const BASE = process.env.APP_URL ?? 'https://trains-and-tracks.vercel.app';
 const ADMIN = process.env.ADMIN_SECRET!;
 if (!ADMIN) throw new Error('ADMIN_SECRET missing');
 
+// All knobs configurable via env so the same script runs for a 50-req smoke
+// or a 5000-req pre-demo sweep. Defaults match a reasonable cloud-gate run.
 const SIMULATE_N = Number(process.env.SIMULATE_N ?? 500);
-const WINDOW_SEC = 30;
-const POLL_MS = 2000;
-const SIMULATE_POLL_MAX_MS = 180_000;
+const WINDOW_SEC = Number(process.env.WINDOW_SEC ?? 30);
+const POLL_MS = Number(process.env.POLL_MS ?? 2000);
+const SIMULATE_POLL_MAX_MS = Number(process.env.POLL_MAX_MS ?? 180_000);
 
 async function j(label: string, body: unknown) {
   console.log(`\n─── ${label} ───`);
