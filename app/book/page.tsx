@@ -245,7 +245,7 @@ export default function BookPage() {
               sold out
             </div>
             <h2 className="text-4xl font-semibold tracking-tight text-zinc-300">
-              All 500 seats booked
+              All {grid.total} seats booked
             </h2>
             <p className="max-w-md text-sm text-muted-foreground">
               Mumbai Rajdhani 12951 for tomorrow&apos;s departure is fully confirmed. Try
