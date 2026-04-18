@@ -58,6 +58,15 @@ interface LiveStats {
   series: { t: number; confirmed: number; failed: number; ingress: number }[];
 }
 
+interface DlqJob {
+  id: string;
+  qstashMessageId: string;
+  errorReason: string;
+  attemptCount: number;
+  createdAt: string;
+  payload: unknown;
+}
+
 const POLL_MS = 2000;
 const HERO_RANGE = '60s';
 const SS_KEY = 'admin_secret';
@@ -96,6 +105,9 @@ export default function OpsPage() {
   const [surgeN, setSurgeN] = useState<number>(1000);
   const [surgeWindow, setSurgeWindow] = useState<number>(10);
   const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
+  const [dlq, setDlq] = useState<DlqJob[]>([]);
+  // Scroll target for "watch the chart light up" on surge click.
+  const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem(SS_KEY) : null;
@@ -146,6 +158,32 @@ export default function OpsPage() {
     };
     void tick();
     const t = setInterval(tick, 1500);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [adminSecret]);
+
+  // Poll DLQ — longer interval (10s) because failures are rare and the panel
+  // is ambient context, not the centerpiece. Read bucket (300/min headroom).
+  useEffect(() => {
+    if (!adminSecret) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/admin/dlq?limit=20', {
+          headers: { Authorization: `Bearer ${adminSecret}` },
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as { jobs: DlqJob[] };
+        if (alive) setDlq(body.jobs ?? []);
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const t = setInterval(tick, 10000);
     return () => {
       alive = false;
       clearInterval(t);
@@ -211,12 +249,14 @@ export default function OpsPage() {
     [adminSecret],
   );
 
-  const simulate = () =>
-    callAdmin(
+  const simulate = () => {
+    chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return callAdmin(
       '/api/simulate',
       { trainId: '12951', requestCount: surgeN, windowSeconds: surgeWindow },
       `Simulate surge (${surgeN.toLocaleString()} req / ${surgeWindow} s)`,
     );
+  };
   const kill = () =>
     callAdmin('/api/admin/kill-worker', { failNextN: 3, failureMode: '500' }, 'Kill next 3 worker runs');
   const reset = () =>
@@ -224,8 +264,8 @@ export default function OpsPage() {
   const refresh = () => window.location.reload();
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <header className="sticky top-0 z-10 border-b border-zinc-800/60 bg-background/80 backdrop-blur">
+    <main className="flex h-[calc(100vh-40px)] flex-col overflow-hidden bg-background text-foreground">
+      <header className="shrink-0 border-b border-zinc-800/60 bg-background/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <Link
@@ -255,7 +295,7 @@ export default function OpsPage() {
         </div>
       </header>
 
-      <section className="mx-auto max-w-7xl space-y-6 px-6 py-8">
+      <section className="mx-auto flex w-full min-h-0 max-w-7xl flex-1 flex-col space-y-3 overflow-auto px-6 py-3">
         {/* Admin secret input (kept subtle) */}
         <Card className="border-zinc-800/60 bg-zinc-950/40">
           <CardContent className="flex flex-wrap items-end gap-3 pt-5">
@@ -285,9 +325,14 @@ export default function OpsPage() {
           )}
         </Card>
 
-        {/* Hero chart — confirmations/sec last 60s */}
-        <Card className="border-zinc-800/60 bg-zinc-950/40">
-          <CardHeader className="pb-3">
+        {/* Hero chart — confirmations/sec last 60s. Flex-1 so it fills the
+            residual vertical space between the stat grid above and the surge
+            controls below; auto-scroll target on SIMULATE SURGE click. */}
+        <Card
+          ref={chartRef}
+          className="flex min-h-[240px] flex-1 flex-col border-zinc-800/60 bg-zinc-950/40"
+        >
+          <CardHeader className="shrink-0 pb-3">
             <CardTitle className="flex items-baseline justify-between font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
               <span>confirmations / sec · last 60s</span>
               <span className="font-mono text-4xl tabular-nums text-[#00D084]">
@@ -297,8 +342,8 @@ export default function OpsPage() {
               </span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="h-80">
+          <CardContent className="flex min-h-0 flex-1 flex-col">
+            <div className="h-full min-h-0 flex-1">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={heroData} margin={{ top: 10, right: 20, bottom: 0, left: -10 }}>
                   <defs>
@@ -502,7 +547,7 @@ export default function OpsPage() {
           </CardHeader>
           <CardContent>
             {recent.length === 0 ? (
-              <div className="py-8 text-center font-mono text-xs text-muted-foreground">
+              <div className="py-3 text-center font-mono text-xs text-muted-foreground">
                 {adminSecret ? 'no bookings yet' : 'paste admin secret to enable'}
               </div>
             ) : (
