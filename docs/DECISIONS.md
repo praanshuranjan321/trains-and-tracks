@@ -646,6 +646,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: inline requestIdFrom/requestIdOf helper per endpoint matching the existing /api/book + /api/insights shape; honor client-supplied x-request-id ≤128 chars else mint `req_<ulid>` (nodejs) or `req_<uuid-16>` (edge via crypto.randomUUID). Echoed on every return path — success + error + the FIX-1 circuit_open catch. Sweeper stamps request_id onto every log entry for QStash-delivery → sweep-outcome correlation
 - files: app/api/seats/route.ts, app/api/healthz/route.ts, app/api/sweeper/expire-holds/route.ts
 
+## [2026-04-18 08:19 IST] 78a0890: test(invariant) I1 zero-duplicate assertion (prod DB)
+- context: systematic audit D6-I1 BLOCKER — the product's headline correctness claim ("zero duplicate seat allocation") had no automated assertion anywhere in the codebase; ad-hoc script in local-chaos was not regression-protected and had never been run against the deployed system
+- decision: first entry under tests/invariants/. Runs the canonical DATA_MODEL §10 query `SELECT seat_id, COUNT(*) FROM bookings WHERE status='CONFIRMED' GROUP BY seat_id HAVING COUNT(*)>1`. Exits 0 on zero rows, 1 on any row. Safety gate: refuses local Docker URL (127.0.0.1) so the test can only prove the deployed claim. Masks password in the echoed URL. Runner: `pnpm test:invariant:i1`
+- files: tests/invariants/no-duplicate-seats.ts, package.json
+
 ---
 
 ## 6. Defense notes
