@@ -656,6 +656,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: DB-only formulation — rate-limited rejects never create bookings rows, so the counted universe is the bookings table alone: `total == COUNT(PENDING)+COUNT(RESERVED)+COUNT(CONFIRMED)+COUNT(FAILED)+COUNT(EXPIRED)`. Any mismatch or unknown status fails exit 1. DLQ depth reported as operator signal only — already-FAILED bookings with a dlq_jobs row are not a loss. Full ingress-side invariant (ingress == confirmed+failed+expired+dlq+rate_limited) requires metric counters; documented as out of scope for the DB-only variant. Same safety gate as I1
 - files: tests/invariants/no-lost-intent.ts, package.json
 
+## [2026-04-18 08:39 IST] dd99238: feat(restore) metrics env labels + live-stats 3-CTE rewrite + dashboard JSON + hero images
+- context: pre-audit session work stashed during the 7-fix mandate, now reapplied on top. Auto-merge on app/api/insights/[metric]/route.ts kept both the FIX-1 BrokenCircuitError catch and the {ENV} query-template
+- decision: (1) env-label separation on the shared Grafana Cloud tenant — METRICS_ENV > VERCEL_ENV > 'local' precedence via setDefaultLabels so every metric carries env without touching call sites; insights proxy substitutes {ENV} per-request with a regex-gated env selector + optional ?env= override. (2) live-stats time-series bug fix — replaced the single LEFT JOIN (filtered by created_at but summed over confirmed_at, dropping every row where confirm landed >2s after create — i.e. every row under surge) with three per-event CTEs keyed on the correct timestamp column each. (3) infra/grafana/dashboard.json — 8-panel dashboard with `$env` template variable for importable demo view. (4) hero image assets added under public/
+- files: app/api/admin/live-stats/route.ts, app/api/insights/[metric]/route.ts, lib/metrics/registry.ts, infra/grafana/dashboard.json, public/hero_image.png, public/reference_website.webp
+
 ---
 
 ## 6. Defense notes
