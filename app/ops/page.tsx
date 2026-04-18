@@ -51,6 +51,13 @@ interface RecentBooking {
   confirmedAt: string | null;
 }
 
+interface LiveStats {
+  inventory: { available: number; reserved: number; confirmed: number };
+  bookings: { total: number; pending: number; confirmed: number; failed: number; expired: number };
+  dlq: number;
+  series: { t: number; confirmed: number; failed: number; ingress: number }[];
+}
+
 const POLL_MS = 2000;
 const HERO_RANGE = '60s';
 const SS_KEY = 'admin_secret';
@@ -88,6 +95,7 @@ export default function OpsPage() {
   const [recent, setRecent] = useState<RecentBooking[]>([]);
   const [surgeN, setSurgeN] = useState<number>(1000);
   const [surgeWindow, setSurgeWindow] = useState<number>(10);
+  const [liveStats, setLiveStats] = useState<LiveStats | null>(null);
 
   useEffect(() => {
     const saved = typeof window !== 'undefined' ? sessionStorage.getItem(SS_KEY) : null;
@@ -112,7 +120,32 @@ export default function OpsPage() {
       }
     };
     void tick();
-    const t = setInterval(tick, 3000);
+    const t = setInterval(tick, 2000);
+    return () => {
+      alive = false;
+      clearInterval(t);
+    };
+  }, [adminSecret]);
+
+  // Poll live stats (DB-direct, works without Grafana).
+  useEffect(() => {
+    if (!adminSecret) return;
+    let alive = true;
+    const tick = async () => {
+      try {
+        const res = await fetch('/api/admin/live-stats', {
+          headers: { Authorization: `Bearer ${adminSecret}` },
+          cache: 'no-store',
+        });
+        if (!res.ok) return;
+        const body = (await res.json()) as LiveStats;
+        if (alive) setLiveStats(body);
+      } catch {
+        /* ignore */
+      }
+    };
+    void tick();
+    const t = setInterval(tick, 1500);
     return () => {
       alive = false;
       clearInterval(t);
@@ -132,14 +165,20 @@ export default function OpsPage() {
   const queueDepth = useInsight('queue_depth');
   const dlqCount = useInsight('dlq_count');
 
-  const heroData = useMemo(
-    () =>
-      bookingsPerSec.map((p) => ({
+  // Prefer live-stats DB series (works locally without Grafana push), fall back
+  // to Grafana Prometheus proxy when in production with a push pipeline.
+  const heroData = useMemo(() => {
+    if (liveStats && liveStats.series.length > 0) {
+      return liveStats.series.map((p) => ({
         t: new Date(p.t * 1000).toLocaleTimeString('en-GB', { hour12: false }),
-        v: Math.round(p.v * 100) / 100,
-      })),
-    [bookingsPerSec],
-  );
+        v: p.confirmed,
+      }));
+    }
+    return bookingsPerSec.map((p) => ({
+      t: new Date(p.t * 1000).toLocaleTimeString('en-GB', { hour12: false }),
+      v: Math.round(p.v * 100) / 100,
+    }));
+  }, [liveStats, bookingsPerSec]);
 
   const latestValue = (series: InsightPoint[]): number | null =>
     series.length ? series[series.length - 1]!.v : null;
@@ -248,13 +287,15 @@ export default function OpsPage() {
           )}
         </Card>
 
-        {/* Hero chart — bookings/sec last 60s */}
+        {/* Hero chart — confirmations/sec last 60s */}
         <Card className="border-zinc-800/60 bg-zinc-950/40">
           <CardHeader className="pb-3">
             <CardTitle className="flex items-baseline justify-between font-mono text-[11px] font-normal uppercase tracking-widest text-muted-foreground">
-              <span>bookings / sec · last 60s</span>
+              <span>confirmations / sec · last 60s</span>
               <span className="font-mono text-4xl tabular-nums text-[#00D084]">
-                {latestValue(bookingsPerSec)?.toFixed(2) ?? '—'}
+                {liveStats?.series.length
+                  ? liveStats.series[liveStats.series.length - 1]!.confirmed.toLocaleString()
+                  : latestValue(bookingsPerSec)?.toFixed(2) ?? '—'}
               </span>
             </CardTitle>
           </CardHeader>
@@ -306,14 +347,36 @@ export default function OpsPage() {
           </CardContent>
         </Card>
 
-        {/* 6-panel metric grid (with HUD connector from header rate-limiter pill) */}
+        {/* 6-panel metric grid. Uses live DB stats if available (local),
+            falls back to Grafana proxy (production). */}
         <div className="relative grid gap-4 md:grid-cols-3 lg:grid-cols-6">
-          <MiniStat label="Ingress / s" value={latestValue(ingressPerSec)} />
-          <MiniStat label="Queue depth" value={latestValue(queueDepth)} />
-          <MiniStat label="Processing / s" value={latestValue(bookingsPerSec)} />
-          <MiniStat label="Success / s" value={latestValue(bookingsPerSec)} accent />
+          <MiniStat
+            label="Ingress (total)"
+            value={liveStats?.bookings.total ?? latestValue(ingressPerSec)}
+            raw={liveStats !== null}
+          />
+          <MiniStat
+            label="Pending"
+            value={liveStats?.bookings.pending ?? latestValue(queueDepth)}
+            raw={liveStats !== null}
+          />
+          <MiniStat
+            label="Available seats"
+            value={liveStats?.inventory.available ?? null}
+            raw
+          />
+          <MiniStat
+            label="Confirmed"
+            value={liveStats?.bookings.confirmed ?? latestValue(bookingsPerSec)}
+            accent
+            raw={liveStats !== null}
+          />
           <div className="relative" id="rl-tile">
-            <MiniStat label="Rate-limited / s" value={latestValue(rejectionsPerSec)} />
+            <MiniStat
+              label="Failed"
+              value={liveStats?.bookings.failed ?? latestValue(rejectionsPerSec)}
+              raw={liveStats !== null}
+            />
             {/* HUD connector — dashed line from rate-limiter pill in header to this tile */}
             <svg
               className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 hidden lg:block"
@@ -335,7 +398,11 @@ export default function OpsPage() {
               />
             </svg>
           </div>
-          <MiniStat label="DLQ count" value={latestValue(dlqCount)} />
+          <MiniStat
+            label="DLQ"
+            value={liveStats?.dlq ?? latestValue(dlqCount)}
+            raw={liveStats !== null}
+          />
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
@@ -515,12 +582,15 @@ function MiniStat({
   suffix,
   accent,
   wide,
+  raw,
 }: {
   label: string;
   value: number | null;
   suffix?: string;
   accent?: boolean;
   wide?: boolean;
+  /** true = render as integer (counts); false = render as float with 2dp (rates). */
+  raw?: boolean;
 }) {
   return (
     <Card className="border-zinc-800/60 bg-zinc-950/40">
@@ -535,7 +605,7 @@ function MiniStat({
         <div
           className={`font-mono tabular-nums ${wide ? 'text-4xl' : 'text-3xl'} ${accent ? 'text-[#00D084]' : ''}`}
         >
-          {value === null ? '—' : value.toFixed(2)}
+          {value === null ? '—' : raw ? value.toLocaleString() : value.toFixed(2)}
           {suffix && <span className="ml-1 text-sm text-muted-foreground">{suffix}</span>}
         </div>
       </CardContent>
