@@ -91,6 +91,24 @@ export function HeroSection() {
         />
       </div>
 
+      {/* Tonal overlays — three layered gradients for text legibility without
+          flattening the illustration. Bottom-up ink for the CTAs/H1 ground,
+          left-diagonal ink for the type column, top-band ink for the rubric
+          bar. All `-z-10` so they sit between the image (`-z-20`) and the
+          content (default). */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-t from-ink via-ink/55 to-ink/0"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 -z-10 bg-gradient-to-r from-ink/75 via-ink/25 to-transparent"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-40 bg-gradient-to-b from-ink/70 to-transparent"
+      />
+
       {/* Paper-grain overlay — keeps flat digital areas from feeling CRT-smooth
           without darkening the illustration. */}
       <svg
