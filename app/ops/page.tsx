@@ -14,7 +14,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { AlertTriangle, ArrowUpRight, BarChart3, CheckCircle2, Clock, Play, RefreshCw, Skull, Trash2, XCircle } from 'lucide-react';
+import { BarChart3, CheckCircle2, Clock, Play, RefreshCw, Skull, Trash2, XCircle } from 'lucide-react';
 import {
   CartesianGrid,
   Line,
@@ -223,7 +223,18 @@ export default function OpsPage() {
     callAdmin('/api/admin/reset', { confirm: 'reset', trainId: '12951' }, 'Reset demo state');
   const refresh = () => window.location.reload();
 
-  const grafanaUrl = process.env.NEXT_PUBLIC_GRAFANA_DASHBOARD_URL;
+  // Last-sample age derived from the insights proxy's most recent series point.
+  // Not a literal "waitUntil fired at T" signal (pusher.ts doesn't expose one),
+  // but a read-only end-to-end proxy: if Mimir has a recent sample, the full
+  // chain — registry → pusher → remote_write → Mimir → /api/insights — is alive.
+  const lastSampleAgo = (() => {
+    if (ingressPerSec.length === 0) return 'awaiting first sample';
+    const latestT = ingressPerSec[ingressPerSec.length - 1]!.t;
+    const age = Math.max(0, Math.floor(Date.now() / 1000) - latestT);
+    if (age < 5) return 'just now';
+    if (age < 120) return `${age}s ago`;
+    return `${Math.floor(age / 60)}m ago`;
+  })();
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -539,52 +550,34 @@ export default function OpsPage() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="flex items-baseline justify-between font-mono text-sm text-muted-foreground">
-              <span>GRAFANA · SHARED DASHBOARD</span>
-              {grafanaUrl ? (
-                <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  prom + mimir · public share
-                </span>
-              ) : (
-                <span className="flex items-center gap-1 text-amber-500">
-                  <AlertTriangle className="h-3.5 w-3.5" /> dashboard URL not set
-                </span>
-              )}
+              <span>METRICS PIPELINE</span>
+              <span className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
+                push via waitUntil
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {grafanaUrl ? (
-              // Embedded iframe is refused by Grafana Cloud free tier
-              // (X-Frame-Options: deny; `allow_embedding` requires paid tier).
-              // The dashboard works fine as a top-level tab; we surface it as
-              // a prominent CTA with live panel summary so judges click once
-              // and land on real-time metrics.
-              <a
-                href={grafanaUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="group flex items-center justify-between gap-4 rounded-md border border-[#00D084]/40 bg-[#00D084]/5 p-6 transition hover:border-[#00D084] hover:bg-[#00D084]/10"
-              >
-                <div className="flex items-center gap-4">
-                  <span className="flex h-12 w-12 items-center justify-center rounded-md bg-[#00D084]/15 text-[#00D084]">
-                    <BarChart3 className="h-6 w-6" />
-                  </span>
-                  <div>
-                    <div className="font-mono text-sm uppercase tracking-widest text-[#00D084]">
-                      open live grafana dashboard
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Throughput · p95/p99 latency · seats · queue depth · retries · breaker · DLQ —
-                      filterable by <code className="font-mono">env = production | preview | local</code>.
-                    </div>
-                  </div>
+            {/* Grafana Shared-Dashboard iframe was removed: public dashboards
+                ship `X-Frame-Options: deny` and `$env` template variables
+                aren't honored on the public-share route, so the embed was
+                both unusable and inaccurate. The pipeline itself is unchanged
+                — prom-client registry → prometheus-remote-write@0.5.1 inside
+                Next.js `after()`/waitUntil → Grafana Cloud Mimir — and every
+                Recharts panel above continues to read from the same Mimir
+                tenant via /api/insights/[metric]. */}
+            <div className="flex items-center gap-4 rounded-md border border-zinc-800/60 bg-zinc-900/40 p-4">
+              <span className="flex h-9 w-9 items-center justify-center rounded-md bg-[#00D084]/15 text-[#00D084]">
+                <BarChart3 className="h-5 w-5" />
+              </span>
+              <div className="flex-1">
+                <div className="font-mono text-xs uppercase tracking-widest text-foreground">
+                  Grafana Cloud Mimir · env=production
                 </div>
-                <ArrowUpRight className="h-5 w-5 text-[#00D084] transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-              </a>
-            ) : (
-              <div className="flex h-[240px] items-center justify-center rounded-md border border-dashed text-sm text-muted-foreground">
-                Set <code className="mx-1 font-mono text-xs">NEXT_PUBLIC_GRAFANA_DASHBOARD_URL</code> to a Shared Dashboard URL.
+                <div className="mt-1 font-mono text-[11px] text-muted-foreground">
+                  prometheus-remote-write · last sample {lastSampleAgo}
+                </div>
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       </section>
