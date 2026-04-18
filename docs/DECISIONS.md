@@ -684,6 +684,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: Option B from the three-way triage — replace the iframe embed with a one-click CTA card that opens the dashboard in a new tab. High-contrast #00D084 panel matching the landing hero visual language; BarChart3 icon; copy names the six panel groups + the `$env` filter for judge-facing clarity. `target=_blank rel=noreferrer`. Preserves the "dashboard URL not set" fallback for local-dev. Zero new external-service dependency; no CSP-header fight. Option A (toggle allow_embedding) is blocked by tier; Option C (per-panel /d-solo embed URLs) costs more than it's worth for one hackathon demo
 - files: app/ops/page.tsx
 
+## [2026-04-18 09:13 IST] ca0d476: fix(admin-rl) split read/write buckets to prevent poll starvation (ADR-011 refinement)
+- context: during the 100-req/10s simulate test, Simulate Surge returned 429 `Admin rate limit exceeded` on first click. Root cause: single admin bucket (30/min per token) starved by /ops's own polling — live-stats (1.5s interval = 40/min) + recent-bookings (2s interval = 30/min) = 70 combined, capped at 30 → bucket permanently saturated → every operator mutation rejected
+- decision: two buckets per admin token, both via the existing custom Lua sliding-window-log (Rule 4.1 ammunition unchanged). WRITE `rl:admin:w:<fp>` 30/60s for mutations (reset, kill-worker, dlq retry, simulate) — stays strict for judge-facing demo-safety story. READ `rl:admin:r:<fp>` 300/60s for polling (live-stats, recent-bookings) — 5× headroom over observed 70/min load so a second operator tab can join. `requireAdmin` gains `AdminAuthOptions { kind?: 'read'|'write' }`; default 'write' so new admin endpoints fail closed into the strict bucket unless explicitly marked safe. API_CONTRACT §10 matrix + ADR-011 Consequences updated
+- files: lib/admin/auth.ts, app/api/admin/live-stats/route.ts, app/api/admin/recent-bookings/route.ts, docs/API_CONTRACT.md, docs/DECISIONS.md
+
 ---
 
 ## 6. Defense notes
