@@ -641,6 +641,11 @@ Dev chat appends one line per non-trivial decision made during implementation. F
 - decision: emit `hold_expired` in response body from both worker paths; keep the `hold_expired_during_payment` log label so operators can still distinguish the race variant from pure sweeper path; drop the dead `hold_expired_during_payment` literal from `releaseReservation`'s reason union; update FAILURE_MATRIX §3.2 step 8; leave the UI friendlyReason case handling both (stale idempotency_keys rows from pre-deploy)
 - files: app/api/worker/allocate/route.ts, lib/allocation/run-worker-job.ts, lib/allocation/hold-state-machine.ts, docs/FAILURE_MATRIX.md
 
+## [2026-04-18 08:12 IST] 2e61434: fix(api) X-Request-ID on seats/healthz/sweeper endpoints (P5/P14/P8)
+- context: systematic audit D3 — three endpoints (/api/seats, /api/healthz, /api/sweeper/expire-holds) never emitted X-Request-ID, violating API_CONTRACT §12 invariant #2 ("every response carries X-Request-ID for log correlation")
+- decision: inline requestIdFrom/requestIdOf helper per endpoint matching the existing /api/book + /api/insights shape; honor client-supplied x-request-id ≤128 chars else mint `req_<ulid>` (nodejs) or `req_<uuid-16>` (edge via crypto.randomUUID). Echoed on every return path — success + error + the FIX-1 circuit_open catch. Sweeper stamps request_id onto every log entry for QStash-delivery → sweep-outcome correlation
+- files: app/api/seats/route.ts, app/api/healthz/route.ts, app/api/sweeper/expire-holds/route.ts
+
 ---
 
 ## 6. Defense notes
