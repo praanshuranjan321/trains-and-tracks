@@ -81,7 +81,23 @@ export async function publishAllocateJob(args: AllocateJobPayload): Promise<{ me
       // [A-Za-z0-9._-] — the ':' separator in ADR-004 is rejected.
       // Semantics unchanged; `train.` namespaces the same way.
       key: `train.${args.trainId}`,
-      parallelism: 1,
+      // parallelism raised 1 → 10 for demo-relevant per-train throughput.
+      // Correctness is parallelism-independent:
+      //   - FOR UPDATE SKIP LOCKED (migration 100:45) — no two workers
+      //     ever grab the same AVAILABLE seat.
+      //   - allocate_seat re-delivery guard (migration 100:17-25) —
+      //     survives QStash double-delivery: returns existing RESERVED
+      //     hold instead of allocating a second seat.
+      //   - bookings.idempotency_key UNIQUE (migration 060 / ADR-024) —
+      //     third-layer backstop if the first two somehow race.
+      // Tradeoff: strict per-train FIFO relaxed — booking #3 might confirm
+      // before #2 when both are in flight. Correctness invariants unchanged.
+      // Pool safety: 10 concurrent workers × Supavisor 1-slot-per-worker =
+      // 10/200 pool slots. Comfortable headroom vs saturation cliff.
+      // Ceiling derivation: Little's Law + pool size + QStash rate ceiling
+      // caps effective parallelism around 50-100 for this stack — past that,
+      // breaker trips, throughput collapses. See DECISIONS.md ADR-004 §5.
+      parallelism: 10,
       rate: 200,
       period: '1s',
     },
