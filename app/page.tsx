@@ -1,12 +1,15 @@
 // Landing — RSC. Pulls the problem narrative from PRD §2.1 and wires two
-// CTAs: /book for the happy path, /ops for the judge demo. No hero video in
-// MVP (Phase 7 polish); placeholder gradient keeps the layout from looking
-// empty.
+// CTAs: /book for the happy path, /ops for the judge demo.
+//
+// Phase 7 polish (2026-04-18 06:00 IST): editorial travel-magazine direction.
+// Serif display (Fraunces), flat-illustration plate anchor, teal/ivory/train-red
+// palette extracted from /public/hero_image.png. The old Anton + signal-green
+// treatment survives on /ops where Grafana-dark is the brief.
 
 import Link from 'next/link';
-import { ArrowRight, Train } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowDown, ArrowRight } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
@@ -40,71 +43,186 @@ const CASE_STUDIES = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
-      {/* Hero — Pexels crowded-station bg + dark gradient overlay */}
-      <section className="relative overflow-hidden border-b">
-        <div
-          className="absolute inset-0 -z-20 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              'url(https://images.pexels.com/photos/2031024/pexels-photo-2031024.jpeg?auto=compress&cs=tinysrgb&w=1920)',
-          }}
-        />
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-background/70 via-background/85 to-background" />
-        <div className="mx-auto max-w-6xl px-6 py-28 sm:py-40">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Train className="h-4 w-4" />
-            <span className="font-mono uppercase tracking-widest text-[11px]">Trains and Tracks</span>
+      {/* Hero — editorial departure card. Asymmetric 2-col grid: serif display
+          left, flat-illustration plate right. Paper-grain noise, hairline
+          rules, mono micro-caps rubrics, tickertape marquee + scroll cue at
+          foot. 70vh min-height enforced at section level; min-h clamped on
+          mobile where the stack eats more vertical. */}
+      <section className="relative isolate overflow-hidden bg-ink text-cloud-ivory">
+        {/* Paper-grain noise — keeps the ink field from looking flat-matte. */}
+        <svg
+          className="pointer-events-none absolute inset-0 -z-0 h-full w-full opacity-[0.045] mix-blend-screen"
+          aria-hidden
+        >
+          <filter id="hero-grain">
+            <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
+            <feColorMatrix type="saturate" values="0" />
+          </filter>
+          <rect width="100%" height="100%" filter="url(#hero-grain)" />
+        </svg>
+
+        {/* Top rubric bar — departure-card framing. */}
+        <div className="relative z-10 border-b border-cloud-ivory/10">
+          <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 font-mono text-[10px] uppercase tracking-[0.22em] text-cloud-ivory/55 sm:text-[11px]">
+            <div className="flex items-center gap-3">
+              <span aria-hidden className="inline-flex h-1.5 w-1.5 rounded-full bg-train-red" />
+              <span>
+                Trains <span className="text-cloud-ivory/25">&amp;</span> Tracks
+              </span>
+              <span aria-hidden className="hidden text-cloud-ivory/20 sm:inline">
+                /
+              </span>
+              <span className="hidden sm:inline">№ 01 · Departures</span>
+            </div>
+            <div className="hidden items-center gap-5 md:flex">
+              <span>NDLS → BCT</span>
+              <span aria-hidden className="text-cloud-ivory/20">
+                ·
+              </span>
+              <span>Est. April 2026</span>
+            </div>
           </div>
-          <h1
-            className="mt-8 font-bold uppercase leading-[0.9] tracking-tight text-foreground"
-            style={{
-              fontSize: 'clamp(4rem, 10vw, 8rem)',
-              fontFamily: '"Anton", "Bebas Neue", "Impact", system-ui, sans-serif',
-              letterSpacing: '-0.02em',
-            }}
-          >
-            Exactly once.
-            <span className="block text-[#00D084]">Every time.</span>
-          </h1>
-          <p
-            className="mt-8 max-w-2xl font-mono text-sm uppercase tracking-widest text-muted-foreground sm:text-base"
-            style={{ letterSpacing: '0.15em' }}
-          >
-            A reservation engine that survives Tatkal. No duplicates. No hangs. No silent drops.
-          </p>
-          <div className="mt-12 flex flex-wrap gap-3">
-            <Link
-              href="/book"
-              className={buttonVariants({
-                size: 'lg',
-                className: 'gap-2 bg-[#00D084] text-black hover:bg-[#00D084]/90 font-mono uppercase tracking-widest text-xs px-6',
-              })}
+        </div>
+
+        {/* Main body — asymmetric grid. */}
+        <div className="relative z-10 mx-auto grid min-h-[70vh] max-w-7xl grid-cols-1 gap-12 px-6 pb-20 pt-14 sm:pt-20 lg:grid-cols-12 lg:gap-14 lg:pb-24 lg:pt-20">
+          {/* Left: editorial column. Image appears first on mobile, type first on desktop. */}
+          <div className="order-2 flex flex-col justify-center lg:order-1 lg:col-span-7">
+            <div className="flex items-center gap-3 font-mono text-[10px] uppercase tracking-[0.3em] text-train-red sm:text-[11px]">
+              <span aria-hidden className="h-px w-8 bg-train-red/70" />
+              The Tatkal problem, solved
+            </div>
+
+            <h1
+              className="mt-6 font-serif font-medium uppercase text-cloud-ivory"
+              style={{
+                fontSize: 'clamp(3rem, 8vw, 8rem)',
+                lineHeight: 0.9,
+                letterSpacing: '-0.03em',
+                fontVariationSettings: '"opsz" 144, "SOFT" 0, "WONK" 0',
+              }}
             >
-              Try booking <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/ops"
-              className={buttonVariants({
-                size: 'lg',
-                variant: 'outline',
-                className: 'gap-2 font-mono uppercase tracking-widest text-xs px-6',
-              })}
-            >
-              See it running
-            </Link>
+              Exactly once.
+              <span className="block">Every time.</span>
+            </h1>
+
+            <div className="mt-10 flex items-start gap-4">
+              <span aria-hidden className="mt-3 hidden h-px w-10 shrink-0 bg-cloud-ivory/40 sm:block" />
+              <p
+                className="max-w-[38ch] font-serif italic text-cloud-ivory/80"
+                style={{
+                  fontSize: 'clamp(1.125rem, 2.1vw, 1.5rem)',
+                  lineHeight: 1.35,
+                  fontVariationSettings: '"opsz" 36, "SOFT" 0',
+                }}
+              >
+                What IRCTC Tatkal should have been.
+              </p>
+            </div>
+
+            <div className="mt-12 flex flex-wrap items-center gap-x-3 gap-y-4">
+              <Link
+                href="/book"
+                className={buttonVariants({
+                  size: 'lg',
+                  className:
+                    'group h-12 gap-2 rounded-none bg-train-red px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory transition-all duration-200 hover:bg-train-red-dark hover:text-paper',
+                })}
+              >
+                Try booking
+                <ArrowRight className="h-4 w-4 transition-transform duration-200 group-hover:translate-x-1" />
+              </Link>
+              <Link
+                href="/ops"
+                className={buttonVariants({
+                  size: 'lg',
+                  variant: 'outline',
+                  className:
+                    'h-12 gap-2 rounded-none border-cloud-ivory/40 bg-transparent px-7 font-mono text-[11px] font-medium uppercase tracking-[0.22em] text-cloud-ivory hover:border-cloud-ivory hover:bg-cloud-ivory/5 hover:text-cloud-ivory',
+                })}
+              >
+                See it running
+              </Link>
+            </div>
           </div>
-          <div className="mt-10 flex flex-wrap gap-2 text-xs">
-            <Badge variant="secondary" className="font-mono">FOR UPDATE SKIP LOCKED</Badge>
-            <Badge variant="secondary" className="font-mono">Stripe idempotency contract</Badge>
-            <Badge variant="secondary" className="font-mono">QStash Flow Control</Badge>
-            <Badge variant="secondary" className="font-mono">Cockatiel breaker</Badge>
-            <Badge variant="secondary" className="font-mono">Custom Lua sliding-window-log</Badge>
+
+          {/* Right: mounted illustration plate with hard shadow + caption. */}
+          <div className="order-1 lg:order-2 lg:col-span-5 lg:self-center">
+            <figure className="group relative">
+              {/* Corner tick-marks — printer's crop registration marks. */}
+              <span
+                aria-hidden
+                className="absolute -left-3 -top-3 hidden h-4 w-4 border-l border-t border-cloud-ivory/30 md:block"
+              />
+              <span
+                aria-hidden
+                className="absolute -right-3 -bottom-3 hidden h-4 w-4 border-r border-b border-cloud-ivory/30 md:block"
+              />
+              {/* The plate. Hard offset shadow reads as print-on-paper, not
+                  web-glossy. Slight ivory inner border reads as museum mount. */}
+              <div className="relative border border-cloud-ivory/15 shadow-[10px_10px_0_rgba(10,10,10,0.55)] transition-transform duration-500 group-hover:-translate-y-0.5 group-hover:translate-x-0.5">
+                <Image
+                  src="/hero_image.png"
+                  alt="Illustration — red passenger train crossing a stone-arch viaduct over a mountain lake, snow-capped peaks and cloud bank in the distance. Flat-colour style referencing Swiss SBB editorial."
+                  width={1332}
+                  height={755}
+                  priority
+                  sizes="(max-width: 1024px) 100vw, 44vw"
+                  className="block h-auto w-full select-none"
+                />
+                {/* Tonal scrim to blend plate into the ink field. */}
+                <div
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/25 via-transparent to-transparent"
+                />
+              </div>
+              {/* Caption — magazine plate annotation. */}
+              <figcaption className="mt-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 font-mono text-[10px] uppercase tracking-[0.22em] text-cloud-ivory/50 sm:text-[11px]">
+                <span>
+                  <span className="text-cloud-ivory/80">Plate № 01</span>
+                  <span className="ml-3 text-cloud-ivory/30">·</span>
+                  <span className="ml-3">ill. flat-plate</span>
+                </span>
+                <span className="text-cloud-ivory/35">edition of one</span>
+              </figcaption>
+            </figure>
+          </div>
+        </div>
+
+        {/* Foot strip — ticker of correctness primitives + scroll chevron. */}
+        <div className="relative z-10 border-t border-cloud-ivory/10">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-6 px-6 py-4 font-mono text-[10px] uppercase tracking-[0.28em] text-cloud-ivory/45 sm:text-[11px]">
+            <div className="flex min-w-0 flex-1 items-center gap-4 overflow-hidden">
+              <span className="hidden shrink-0 text-cloud-ivory/25 sm:inline">◂</span>
+              <span className="flex min-w-0 items-center gap-4 truncate">
+                <span className="shrink-0">Effectively-once execution</span>
+                <span aria-hidden className="shrink-0 text-cloud-ivory/20">
+                  ·
+                </span>
+                <span className="hidden shrink-0 sm:inline">FOR UPDATE SKIP LOCKED</span>
+                <span aria-hidden className="hidden shrink-0 text-cloud-ivory/20 sm:inline">
+                  ·
+                </span>
+                <span className="hidden shrink-0 md:inline">Stripe-contract idempotency</span>
+                <span aria-hidden className="hidden shrink-0 text-cloud-ivory/20 md:inline">
+                  ·
+                </span>
+                <span className="hidden shrink-0 lg:inline">QStash flow control</span>
+              </span>
+            </div>
+            <a
+              href="#problem"
+              className="group flex shrink-0 items-center gap-2 text-cloud-ivory/60 transition-colors hover:text-cloud-ivory"
+            >
+              <span>Scroll</span>
+              <ArrowDown className="h-3.5 w-3.5 transition-transform duration-500 group-hover:translate-y-0.5" />
+            </a>
           </div>
         </div>
       </section>
 
       {/* Problem */}
-      <section className="border-b">
+      <section id="problem" className="border-b scroll-mt-16">
         <div className="mx-auto max-w-6xl px-6 py-20">
           <div className="mb-10 max-w-3xl">
             <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">

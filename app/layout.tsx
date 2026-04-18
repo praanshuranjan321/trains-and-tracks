@@ -1,23 +1,30 @@
 import type { Metadata } from 'next';
-import { Anton, Inter, JetBrains_Mono } from 'next/font/google';
+import { Fraunces, Inter, JetBrains_Mono } from 'next/font/google';
 import './globals.css';
 
+// Body text. Named --font-inter (not --font-sans) so the Tailwind `@theme`
+// `--font-sans` token can compose with a fallback stack without self-reference.
 const inter = Inter({
-  variable: '--font-sans',
+  variable: '--font-inter',
   subsets: ['latin'],
   display: 'swap',
 });
 
+// Numerics, rubric micro-caps, operator-dashboard labels.
 const jetbrainsMono = JetBrains_Mono({
-  variable: '--font-mono',
+  variable: '--font-jetbrains-mono',
   subsets: ['latin'],
   display: 'swap',
 });
 
-const anton = Anton({
-  variable: '--font-display',
+// Editorial serif — variable axes (opsz / SOFT / WONK) let the same face carry
+// poster-display ("EXACTLY ONCE.") and 24 px italic pull-quotes without
+// swapping family. Chosen over Playfair for warmer, less wedding-invite
+// character; closest Google Fonts approximation to PP Editorial New / Migra.
+const fraunces = Fraunces({
+  variable: '--font-fraunces',
   subsets: ['latin'],
-  weight: '400',
+  style: ['normal', 'italic'],
   display: 'swap',
 });
 
@@ -52,7 +59,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${inter.variable} ${jetbrainsMono.variable} ${anton.variable} h-full dark antialiased`}
+      className={`${inter.variable} ${jetbrainsMono.variable} ${fraunces.variable} h-full dark antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-sans">
         {children}
