@@ -4,6 +4,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { BrokenCircuitError } from 'cockatiel';
 
 import { supabaseAdmin } from '@/lib/db/supabase';
 
@@ -20,20 +21,41 @@ interface SeatRow {
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const trainId = new URL(req.url).searchParams.get('train_id') ?? '12951';
 
-  const { data, error } = await supabaseAdmin
-    .from('seats')
-    .select('id, coach, seat_number, status')
-    .eq('train_id', trainId)
-    .order('id', { ascending: true });
+  let data: unknown[] | null = null;
+  try {
+    const res = await supabaseAdmin
+      .from('seats')
+      .select('id, coach, seat_number, status')
+      .eq('train_id', trainId)
+      .order('id', { ascending: true });
 
-  if (error) {
-    return NextResponse.json(
-      { error: { code: 'upstream_failure', message: error.message } },
-      { status: 502 },
-    );
+    if (res.error) {
+      return NextResponse.json(
+        { error: { code: 'upstream_failure', message: res.error.message } },
+        { status: 502 },
+      );
+    }
+    data = res.data;
+  } catch (e: unknown) {
+    // Breaker tripped in any future Cockatiel-wrapped dependency — fail CLOSED
+    // per FAILURE_MATRIX §3.3. 503 + Retry-After: 30. Today supabase-js
+    // PostgREST is not wrapped, so this is defensive for future wiring (e.g.
+    // if seats inventory moves behind the pgPolicy-guarded pg client).
+    if (e instanceof BrokenCircuitError) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'circuit_open',
+            message: 'Downstream temporarily unavailable — retry in 30s',
+          },
+        },
+        { status: 503, headers: { 'Retry-After': '30' } },
+      );
+    }
+    throw e;
   }
 
-  const rows = (data ?? []) as SeatRow[];
+  const rows = ((data ?? []) as unknown[]) as SeatRow[];
   const counts = { available: 0, reserved: 0, confirmed: 0 };
   for (const r of rows) {
     if (r.status === 'AVAILABLE') counts.available++;

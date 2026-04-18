@@ -20,6 +20,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { ulid } from 'ulid';
+import { BrokenCircuitError } from 'cockatiel';
 
 import { sql } from '@/lib/db/pg';
 import { createBooking } from '@/lib/db/repositories/bookings';
@@ -38,7 +39,7 @@ import {
   queueDepthHeader,
 } from '@/lib/admission/headers';
 import { publishAllocateJob } from '@/infra/qstash/publisher';
-import { logger } from '@/lib/logging/logger';
+import { logger, type Logger } from '@/lib/logging/logger';
 import { apiError } from '@/lib/errors/api-error';
 import { record } from '@/lib/metrics/registry';
 import { scheduleMetricsPush } from '@/lib/metrics/pusher';
@@ -75,6 +76,36 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   record.counter(M.bookingRequestsTotal, { method: 'POST', route: '/api/book' });
 
+  try {
+    return await handle(req, requestId, ip, log, startNs);
+  } catch (e: unknown) {
+    // Breaker tripped in pgPolicy — fail CLOSED per FAILURE_MATRIX §3.3 /
+    // API_CONTRACT §3. 503 + Retry-After: 30 so clients back off; no
+    // allocation attempt made. Rate-limit headers omitted here because the
+    // breaker path bypasses the earlier admission stage — caller has no
+    // per-IP quota info to display.
+    if (e instanceof BrokenCircuitError) {
+      record.counter(M.rejectionsTotal, { reason: 'circuit_open' });
+      log.warn('circuit_open_503');
+      return apiError({
+        code: 'circuit_open',
+        message: 'Downstream temporarily unavailable — retry in 30s',
+        status: 503,
+        requestId,
+        extraHeaders: { 'Retry-After': '30' },
+      });
+    }
+    throw e;
+  }
+}
+
+async function handle(
+  req: NextRequest,
+  requestId: string,
+  ip: string,
+  log: Logger,
+  startNs: number,
+): Promise<NextResponse> {
   // 1. Idempotency-Key header.
   const idempotencyKey = req.headers.get('idempotency-key');
   if (!idempotencyKey) {

@@ -6,6 +6,7 @@
 
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
+import { BrokenCircuitError } from 'cockatiel';
 
 export const runtime = 'edge';
 export const dynamic = 'force-dynamic';
@@ -168,6 +169,26 @@ export async function GET(
       },
     );
   } catch (e: unknown) {
+    // Breaker-tripped path — fail CLOSED per FAILURE_MATRIX §3.3. 503 +
+    // Retry-After: 30. Defensive today (this proxy only hits Grafana HTTPS,
+    // not pg-policy) but preserves symmetry across public endpoints so
+    // callers see a consistent fail-closed signal regardless of which
+    // dependency tripped.
+    if (e instanceof BrokenCircuitError) {
+      return NextResponse.json(
+        {
+          error: {
+            code: 'circuit_open',
+            message: 'Downstream temporarily unavailable — retry in 30s',
+            request_id: requestId,
+          },
+        },
+        {
+          status: 503,
+          headers: { 'X-Request-ID': requestId, 'Retry-After': '30' },
+        },
+      );
+    }
     return NextResponse.json(
       {
         error: {
